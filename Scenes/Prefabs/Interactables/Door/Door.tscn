@@ -1,0 +1,19 @@
+[gd_scene load_steps=4 format=3 uid="uid://rxbg21t8acsp"]
+
+[ext_resource type="Script" uid="uid://bbrom3oq52tqb" path="res://Scenes/Prefabs/Interactables/Door/Door.cs" id="1_1v6k0"]
+[ext_resource type="Texture2D" uid="uid://biflmqhldrrcg" path="res://Assets/Door/door_closed.png" id="1_ioaw6"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1v6k0"]
+size = Vector2(56, 45)
+
+[node name="Door" type="StaticBody2D"]
+collision_layer = 2
+collision_mask = 0
+script = ExtResource("1_1v6k0")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_ioaw6")
+
+[node name="InteractionRange" type="CollisionShape2D" parent="."]
+position = Vector2(0, 0.5)
+shape = SubResource("RectangleShape2D_1v6k0")

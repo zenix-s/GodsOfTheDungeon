@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3 uid="uid://3e4ohw1k0x02"]
+
+[ext_resource type="Script" uid="uid://q21up3dkcdt" path="res://Core/Main.cs" id="1_rw80f"]
+[ext_resource type="PackedScene" uid="uid://dm4m78fwwgdy7" path="res://Scenes/Prefabs/Entities/Player/Player.tscn" id="2_mgg3w"]
+[ext_resource type="PackedScene" uid="uid://hud000001" path="res://Scenes/UI/HUD/HUD.tscn" id="3_m1i1e"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_rw80f")
+
+[node name="WorldContainer" type="Node2D" parent="."]
+
+[node name="Entities" type="Node2D" parent="."]
+
+[node name="Player" parent="Entities" instance=ExtResource("2_mgg3w")]
+position = Vector2(581, 155)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" parent="UI" instance=ExtResource("3_m1i1e")]
+
+[node name="Camera" type="Camera2D" parent="."]
+position = Vector2(573, 288)

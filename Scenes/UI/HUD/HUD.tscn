@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://hud000001"]
+
+[ext_resource type="Script" uid="uid://b858jyyifokdi" path="res://Scenes/UI/HUD/HUD.cs" id="1_hud"]
+[ext_resource type="PackedScene" uid="uid://bc22bodjjjm3y" path="res://Scenes/UI/Components/CoinCounter/CoinCounter.tscn" id="2_r8yvt"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="CoinCounter" parent="." instance=ExtResource("2_r8yvt")]

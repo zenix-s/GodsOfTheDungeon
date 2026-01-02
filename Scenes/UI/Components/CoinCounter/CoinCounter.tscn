@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://bc22bodjjjm3y"]
+
+[ext_resource type="Script" uid="uid://d358yi3hg4mu2" path="res://Scenes/UI/Components/CoinCounter/CoinCounter.cs" id="1_counter"]
+
+[node name="CoinCounter" type="Label"]
+offset_right = 100.0
+offset_bottom = 23.0
+text = "Coins: 0"
+script = ExtResource("1_counter")
