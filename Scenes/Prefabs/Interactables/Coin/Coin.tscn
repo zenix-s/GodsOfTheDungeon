@@ -109,7 +109,6 @@ script = ExtResource("1_xr87b")
 sprite_frames = SubResource("SpriteFrames_7jy2m")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(1, 0)
 shape = SubResource("CircleShape2D_hf7kw")
 
 [node name="PickupArea" type="Area2D" parent="."]

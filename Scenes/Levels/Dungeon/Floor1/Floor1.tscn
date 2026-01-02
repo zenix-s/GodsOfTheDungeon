@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=4 uid="uid://d6dcxe34b6sq"]
+[gd_scene load_steps=7 format=4 uid="uid://d6dcxe34b6sq"]
 
 [ext_resource type="PackedScene" uid="uid://rxbg21t8acsp" path="res://Scenes/Prefabs/Interactables/Door/Door.tscn" id="1_4ir2e"]
 [ext_resource type="Script" uid="uid://s6yhtt5p6ile" path="res://Scenes/Levels/Dungeon/Floor1/Floor1.cs" id="1_6qj6y"]
 [ext_resource type="Texture2D" uid="uid://cd0klp1dcyv1y" path="res://Assets/Tiles/tileset_terrain.png" id="2_kcgpp"]
+[ext_resource type="PackedScene" uid="uid://bja1gv2tt6gfo" path="res://Scenes/Prefabs/Entities/Enemies/Slime/Slime.tscn" id="4_7jskm"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_6qj6y"]
 texture = ExtResource("2_kcgpp")
@@ -463,3 +464,8 @@ position = Vector2(504, 275)
 
 [node name="MoneyFountain" type="Marker2D" parent="."]
 position = Vector2(732, 265)
+
+[node name="Enemies" type="Node" parent="."]
+
+[node name="Slime" parent="Enemies" instance=ExtResource("4_7jskm")]
+position = Vector2(311, 358)
