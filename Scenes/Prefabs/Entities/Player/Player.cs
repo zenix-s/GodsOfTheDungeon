@@ -5,7 +5,7 @@ using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Entities;
 using GodsOfTheDungeon.Core.Interfaces;
 
-public partial class Player : DamageableEntity
+public partial class Player : GameEntity
 {
 	private HitBox _attackHitBox;
 	private Timer _attackTimer;

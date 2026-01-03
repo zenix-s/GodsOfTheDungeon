@@ -7,10 +7,10 @@ using GodsOfTheDungeon.Core.Systems;
 namespace GodsOfTheDungeon.Core.Entities;
 
 /// <summary>
-///     Base class for any entity that can take damage.
+///     Base class for any entity with stats that can take damage.
 ///     Extend this for Player, Enemies, Destructibles, etc.
 /// </summary>
-public abstract partial class DamageableEntity : CharacterBody2D, IDamageable
+public abstract partial class GameEntity : CharacterBody2D, IGameEntity
 {
     [Signal]
     public delegate void DamagedEventHandler(int damage, bool wasCritical);

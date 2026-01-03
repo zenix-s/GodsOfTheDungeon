@@ -3,7 +3,7 @@ using GodsOfTheDungeon.Core.Data;
 
 namespace GodsOfTheDungeon.Core.Interfaces;
 
-public interface IDamageable
+public interface IGameEntity
 {
     EntityStats Stats { get; }
     bool IsInvincible { get; }

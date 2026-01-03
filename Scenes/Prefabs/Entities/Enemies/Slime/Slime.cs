@@ -4,7 +4,7 @@ using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Entities;
 using GodsOfTheDungeon.Core.Interfaces;
 
-public partial class Slime : DamageableEntity, IEnemy
+public partial class Slime : GameEntity, IEnemy
 {
 	private Timer _attackCooldownTimer;
 	private bool _canAttack = true;
@@ -156,11 +156,11 @@ public partial class Slime : DamageableEntity, IEnemy
 		_attackCooldownTimer.Start();
 
 		// Deal damage if in range
-		if (_targetPlayer is IDamageable damageable)
+		if (_targetPlayer is IGameEntity entity)
 		{
 			float distance = GlobalPosition.DistanceTo(_targetPlayer.GlobalPosition);
 			if (distance <= AttackRange)
-				damageable.TakeDamage(AttackData, Stats, GlobalPosition);
+				entity.TakeDamage(AttackData, Stats, GlobalPosition);
 		}
 	}
 
