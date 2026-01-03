@@ -29,30 +29,14 @@ public class PlayerData
 
 public partial class GameManager : Node
 {
-    // Existing signals
     [Signal]
     public delegate void CoinsChangedEventHandler(int total);
 
     [Signal]
-    public delegate void EnemyKilledEventHandler(Node enemy);
-
-    // Combat signals
-    [Signal]
-    public delegate void EntityDamagedEventHandler(Node entity, int damage, bool wasCritical);
-
-    [Signal]
-    public delegate void EntityDiedEventHandler(Node entity);
-
-    [Signal]
-    public delegate void PlayerDamagedEventHandler(int damage, int currentHP, int maxHP);
-
-    [Signal]
     public delegate void PlayerDiedEventHandler();
 
-    // Global data
     private PlayerData _playerData;
 
-    // Singleton instance
     public static GameManager Instance { get; private set; }
 
     public override void _Ready()
@@ -72,28 +56,8 @@ public partial class GameManager : Node
         EmitSignal(SignalName.CoinsChanged, _playerData.Coins);
     }
 
-    public void OnEntityDamaged(Node entity, int damage, bool wasCritical)
-    {
-        EmitSignal(SignalName.EntityDamaged, entity, damage, wasCritical);
-    }
-
-    public void OnEntityDied(Node entity)
-    {
-        EmitSignal(SignalName.EntityDied, entity);
-    }
-
-    public void OnPlayerDamaged(int damage, int currentHP, int maxHP)
-    {
-        EmitSignal(SignalName.PlayerDamaged, damage, currentHP, maxHP);
-    }
-
     public void OnPlayerDied()
     {
         EmitSignal(SignalName.PlayerDied);
-    }
-
-    public void OnEnemyKilled(Node enemy)
-    {
-        EmitSignal(SignalName.EnemyKilled, enemy);
     }
 }

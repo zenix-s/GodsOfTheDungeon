@@ -19,7 +19,7 @@ public static class DamageCalculator
         DamageResult result = new();
 
         // Base damage calculation
-        float rawDamage = attackerStats.Attack * attack.BaseDamage * attack.DamageMultiplier;
+        float rawDamage = CalculateAttackBaseDamage(attack, attackerStats);
 
         // Apply defense
         float afterDefense = rawDamage - targetStats.Defense;
@@ -28,7 +28,7 @@ public static class DamageCalculator
         int finalDamage = Mathf.Max(1, Mathf.RoundToInt(afterDefense));
 
         // Critical hit check
-        if (attack.CanCrit && GD.Randf() < attackerStats.CriticalChance)
+        if (attack.CanCrit && attackerStats.CriticalChance > GD.Randf())
         {
             finalDamage = Mathf.RoundToInt(finalDamage * attackerStats.CriticalMultiplier);
             result.WasCritical = true;
@@ -48,5 +48,10 @@ public static class DamageCalculator
         result.KnockbackApplied = knockbackDir * actualKnockback;
 
         return result;
+    }
+
+    private static float CalculateAttackBaseDamage(AttackData attack, EntityStats attackerStats)
+    {
+        return attackerStats.Attack * attack.BaseDamage * attack.DamageMultiplier;
     }
 }

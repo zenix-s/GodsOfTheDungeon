@@ -1,46 +1,42 @@
 using Godot;
 using GodsOfTheDungeon.Core.Data;
-using GodsOfTheDungeon.Core.Entities;
 using GodsOfTheDungeon.Core.Interfaces;
 
 namespace GodsOfTheDungeon.Core.Components;
 
-/// <summary>
-///     Attach to an Area2D that deals damage when overlapping with a HurtBox.
-///     Parent must be a GameEntity (Player, Enemy, etc.)
-/// </summary>
 public partial class HitBox : Area2D
 {
 	[Signal]
 	public delegate void HitConnectedEventHandler(Node target, int damage, bool wasCritical);
 
-	private GameEntity _owner;
+	private IGameEntity _owner;
+	private Node _ownerNode;
 
 	[Export] public AttackData AttackData { get; set; }
 	[Export] public bool IsActive { get; set; }
 
 	public override void _Ready()
 	{
-		_owner = GetOwnerEntity();
+		_ownerNode = GetOwnerNode();
+		_owner = _ownerNode as IGameEntity;
 
-		// HitBox monitors for HurtBoxes
 		Monitoring = IsActive;
 		Monitorable = false;
 
 		AreaEntered += OnAreaEntered;
 	}
 
-	private GameEntity GetOwnerEntity()
+	private Node GetOwnerNode()
 	{
 		Node current = GetParent();
 		while (current != null)
 		{
-			if (current is GameEntity entity)
-				return entity;
+			if (current is IGameEntity)
+				return current;
 			current = current.GetParent();
 		}
 
-		GD.PushWarning("HitBox: No GameEntity owner found");
+		GD.PushWarning("HitBox: No IGameEntity owner found");
 		return null;
 	}
 
@@ -50,11 +46,11 @@ public partial class HitBox : Area2D
 
 		if (area is HurtBox hurtBox)
 		{
-			IGameEntity target = hurtBox.GetGameEntity();
+			IDamageable target = hurtBox.GetDamageable();
 			if (target == null || target.IsInvincible) return;
 
 			// Don't hit yourself
-			if (target == _owner) return;
+			if ((Node)target == _ownerNode) return;
 
 			if (AttackData == null)
 			{
@@ -75,9 +71,6 @@ public partial class HitBox : Area2D
 		SetDeferred("monitoring", active);
 	}
 
-	/// <summary>
-	///     Switch to a different attack (for entities with multiple attacks)
-	/// </summary>
 	public void SetAttack(AttackData attackData)
 	{
 		AttackData = attackData;

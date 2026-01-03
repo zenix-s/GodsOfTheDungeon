@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://backob65eo8qf"]
+
+[ext_resource type="Script" uid="uid://c4rqxg8erb65r" path="res://Core/Data/AttackData.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+AttackName = "Slash"
+BaseDamage = 1

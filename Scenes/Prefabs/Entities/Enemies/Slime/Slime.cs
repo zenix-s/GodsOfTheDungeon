@@ -1,194 +1,231 @@
 using Godot;
-using GodsOfTheDungeon.Autoloads;
 using GodsOfTheDungeon.Core.Data;
-using GodsOfTheDungeon.Core.Entities;
 using GodsOfTheDungeon.Core.Interfaces;
+using GodsOfTheDungeon.Core.Systems;
 
-public partial class Slime : GameEntity, IEnemy
+public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
 {
-	private Timer _attackCooldownTimer;
-	private bool _canAttack = true;
-	private SlimeState _currentState = SlimeState.Idle;
-	private Player _targetPlayer;
-	private bool _isPlayerInRange;
+    private Timer _attackCooldownTimer;
+    private bool _canAttack = true;
+    private SlimeState _currentState = SlimeState.Idle;
+    private Player _targetPlayer;
+    private bool _isPlayerInRange;
+    private AnimatedSprite2D _sprite;
 
-	[Export] public float AttackCooldown = 1.5f;
-	[Export] public float AttackRange = 20f;
-	[Export] public float ChaseSpeed = 60f;
-	[Export] public float PatrolSpeed = 30f;
-	[Export] public AttackData AttackData { get; set; }
+    [Export] public float AttackCooldown = 1.5f;
+    [Export] public float AttackRange = 20f;
+    [Export] public float ChaseSpeed = 60f;
+    [Export] public float PatrolSpeed = 30f;
+    [Export] public AttackData AttackData { get; set; }
 
-	public override void _Ready()
-	{
-		// Set slime-specific stats before base._Ready()
-		Stats = new EntityStats
-		{
-			MaxHP = 20,
-			CurrentHP = 20,
-			Attack = 3,
-			Defense = 1,
-			Speed = PatrolSpeed,
-			KnockbackResistance = 0.3f,
-			InvincibilityDuration = 0.3f,
-			CriticalChance = 0f
-		};
+    // IGameEntity implementation
+    [Export] public EntityStats Stats { get; set; }
 
-		AttackData ??= new AttackData
-		{
-			AttackName = "Slime Bump",
-			BaseDamage = 1,
-			KnockbackForce = 100f,
-			CanCrit = false
-		};
+    // IDamageable implementation
+    public bool IsInvincible => false;
 
-		base._Ready();
+    public override void _Ready()
+    {
+        Stats = new EntityStats
+        {
+            MaxHP = 20,
+            CurrentHP = 20,
+            Attack = 3,
+            Defense = 1,
+            Speed = PatrolSpeed,
+            KnockbackResistance = 0.3f,
+            InvincibilityDuration = 0f,
+            CriticalChance = 0f
+        };
 
-		SetupAttackCooldown();
-		SetupDetectionArea();
-	}
+        AttackData ??= new AttackData
+        {
+            AttackName = "Slime Bump",
+            BaseDamage = 1,
+            KnockbackForce = 100f,
+            CanCrit = false
+        };
 
-	private void SetupAttackCooldown()
-	{
-		_attackCooldownTimer = new Timer();
-		_attackCooldownTimer.OneShot = true;
-		_attackCooldownTimer.WaitTime = AttackCooldown;
-		_attackCooldownTimer.Timeout += () => _canAttack = true;
-		AddChild(_attackCooldownTimer);
-	}
+        _sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
 
-	private void SetupDetectionArea()
-	{
-		var detectionArea = GetNodeOrNull<Area2D>("DetectionArea");
-		if (detectionArea != null)
-		{
-			detectionArea.BodyEntered += OnDetectionBodyEntered;
-			detectionArea.BodyExited += OnDetectionBodyExited;
-		}
-	}
+        SetupAttackCooldown();
+        SetupDetectionArea();
+    }
 
-	private void OnDetectionBodyEntered(Node2D body)
-	{
-		if (body is Player player)
-			OnPlayerDetected(player);
-	}
+    private void SetupAttackCooldown()
+    {
+        _attackCooldownTimer = new Timer();
+        _attackCooldownTimer.OneShot = true;
+        _attackCooldownTimer.WaitTime = AttackCooldown;
+        _attackCooldownTimer.Timeout += () => _canAttack = true;
+        AddChild(_attackCooldownTimer);
+    }
 
-	private void OnDetectionBodyExited(Node2D body)
-	{
-		if (body is Player)
-			OnPlayerLost();
-	}
+    private void SetupDetectionArea()
+    {
+        var detectionArea = GetNodeOrNull<Area2D>("DetectionArea");
+        if (detectionArea != null)
+        {
+            detectionArea.BodyEntered += OnDetectionBodyEntered;
+            detectionArea.BodyExited += OnDetectionBodyExited;
+        }
+    }
 
-	public override void _PhysicsProcess(double delta)
-	{
-		if (Stats.IsDead) return;
+    private void OnDetectionBodyEntered(Node2D body)
+    {
+        if (body is Player player)
+            OnPlayerDetected(player);
+    }
 
-		UpdateState();
-		ProcessState((float)delta);
+    private void OnDetectionBodyExited(Node2D body)
+    {
+        if (body is Player)
+            OnPlayerLost();
+    }
 
-		MoveAndSlide();
-	}
+    public override void _PhysicsProcess(double delta)
+    {
+        if (Stats.IsDead) return;
 
-	private void UpdateState()
-	{
-		if (!_isPlayerInRange || _targetPlayer == null)
-		{
-			_currentState = SlimeState.Idle;
-			return;
-		}
+        UpdateState();
+        ProcessState((float)delta);
 
-		float distanceToPlayer = GlobalPosition.DistanceTo(_targetPlayer.GlobalPosition);
+        MoveAndSlide();
+    }
 
-		if (distanceToPlayer <= AttackRange && _canAttack)
-			_currentState = SlimeState.Attack;
-		else
-			_currentState = SlimeState.Chase;
-	}
+    private void UpdateState()
+    {
+        if (!_isPlayerInRange || _targetPlayer == null)
+        {
+            _currentState = SlimeState.Idle;
+            return;
+        }
 
-	private void ProcessState(float delta)
-	{
-		switch (_currentState)
-		{
-			case SlimeState.Idle:
-				Sprite?.Play("idle");
-				// Apply gravity only
-				if (!IsOnFloor())
-					Velocity += GetGravity() * delta;
-				else
-					Velocity = new Vector2(0, Velocity.Y);
-				break;
+        float distanceToPlayer = GlobalPosition.DistanceTo(_targetPlayer.GlobalPosition);
 
-			case SlimeState.Chase:
-				ChasePlayer(delta);
-				break;
+        if (distanceToPlayer <= AttackRange && _canAttack)
+            _currentState = SlimeState.Attack;
+        else
+            _currentState = SlimeState.Chase;
+    }
 
-			case SlimeState.Attack:
-				PerformAttack();
-				break;
-		}
-	}
+    private void ProcessState(float delta)
+    {
+        switch (_currentState)
+        {
+            case SlimeState.Idle:
+                _sprite?.Play("idle");
+                if (!IsOnFloor())
+                    Velocity += GetGravity() * delta;
+                else
+                    Velocity = new Vector2(0, Velocity.Y);
+                break;
 
-	private void ChasePlayer(float delta)
-	{
-		if (_targetPlayer == null) return;
+            case SlimeState.Chase:
+                ChasePlayer(delta);
+                break;
 
-		FaceTarget(_targetPlayer.GlobalPosition);
+            case SlimeState.Attack:
+                PerformAttack();
+                break;
+        }
+    }
 
-		Vector2 direction = (_targetPlayer.GlobalPosition - GlobalPosition).Normalized();
-		Velocity = new Vector2(direction.X * ChaseSpeed, Velocity.Y);
+    private void ChasePlayer(float delta)
+    {
+        if (_targetPlayer == null) return;
 
-		// Apply gravity
-		if (!IsOnFloor()) Velocity += GetGravity() * delta;
+        FaceTarget(_targetPlayer.GlobalPosition);
 
-		Sprite?.Play("idle");
-	}
+        Vector2 direction = (_targetPlayer.GlobalPosition - GlobalPosition).Normalized();
+        Velocity = new Vector2(direction.X * ChaseSpeed, Velocity.Y);
 
-	private void FaceTarget(Vector2 targetPosition)
-	{
-		if (Sprite != null)
-			Sprite.FlipH = targetPosition.X < GlobalPosition.X;
-	}
+        if (!IsOnFloor())
+            Velocity += GetGravity() * delta;
 
-	private void PerformAttack()
-	{
-		if (!_canAttack || _targetPlayer == null) return;
+        _sprite?.Play("idle");
+    }
 
-		_canAttack = false;
-		_attackCooldownTimer.Start();
+    private void FaceTarget(Vector2 targetPosition)
+    {
+        if (_sprite != null)
+            _sprite.FlipH = targetPosition.X < GlobalPosition.X;
+    }
 
-		// Deal damage if in range
-		if (_targetPlayer is IGameEntity entity)
-		{
-			float distance = GlobalPosition.DistanceTo(_targetPlayer.GlobalPosition);
-			if (distance <= AttackRange)
-				entity.TakeDamage(AttackData, Stats, GlobalPosition);
-		}
-	}
+    private void PerformAttack()
+    {
+        if (!_canAttack || _targetPlayer == null) return;
 
-	// IEnemy implementation
-	public void OnPlayerDetected(Player player)
-	{
-		_targetPlayer = player;
-		_isPlayerInRange = true;
-		_currentState = SlimeState.Chase;
-	}
+        _canAttack = false;
+        _attackCooldownTimer.Start();
 
-	public void OnPlayerLost()
-	{
-		_isPlayerInRange = false;
-		_currentState = SlimeState.Idle;
-	}
+        if (_targetPlayer is IDamageable target)
+        {
+            float distance = GlobalPosition.DistanceTo(_targetPlayer.GlobalPosition);
+            if (distance <= AttackRange)
+                target.TakeDamage(AttackData, Stats, GlobalPosition);
+        }
+    }
 
-	public override void Die()
-	{
-		base.Die();
-		GameManager.Instance?.OnEnemyKilled(this);
-		QueueFree();
-	}
+    public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
+    {
+        DamageResult result = DamageCalculator.CalculateDamage(
+            attackData,
+            attackerStats,
+            Stats,
+            attackerPosition,
+            GlobalPosition);
 
-	private enum SlimeState
-	{
-		Idle,
-		Chase,
-		Attack
-	}
+        Stats.CurrentHP -= result.FinalDamage;
+
+        // Apply knockback
+        if (result.KnockbackApplied != Vector2.Zero)
+            Velocity += result.KnockbackApplied;
+
+        PlayHitEffect();
+
+        if (Stats.IsDead)
+        {
+            result.KilledTarget = true;
+            Die();
+        }
+
+        return result;
+    }
+
+    private void PlayHitEffect()
+    {
+        if (_sprite != null)
+        {
+            Tween tween = CreateTween();
+            tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
+            tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
+        }
+    }
+
+    private void Die()
+    {
+        QueueFree();
+    }
+
+    // IEnemy implementation
+    public void OnPlayerDetected(Player player)
+    {
+        _targetPlayer = player;
+        _isPlayerInRange = true;
+        _currentState = SlimeState.Chase;
+    }
+
+    public void OnPlayerLost()
+    {
+        _isPlayerInRange = false;
+        _currentState = SlimeState.Idle;
+    }
+
+    private enum SlimeState
+    {
+        Idle,
+        Chase,
+        Attack
+    }
 }

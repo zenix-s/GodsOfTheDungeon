@@ -2,15 +2,16 @@ using Godot;
 using GodsOfTheDungeon.Autoloads;
 using GodsOfTheDungeon.Core.Components;
 using GodsOfTheDungeon.Core.Data;
-using GodsOfTheDungeon.Core.Entities;
 using GodsOfTheDungeon.Core.Interfaces;
+using GodsOfTheDungeon.Core.Systems;
 
-public partial class Player : GameEntity
+public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 {
 	private HitBox _attackHitBox;
 	private Timer _attackTimer;
+	private Timer _invincibilityTimer;
+	private AnimatedSprite2D _sprite;
 
-	// Internal state
 	private Label _debugLabel;
 	private bool _isAttacking;
 
@@ -23,26 +24,46 @@ public partial class Player : GameEntity
 	[Export] public float JumpVelocity = -400.0f;
 	[Export] public float Speed = 300.0f;
 
-	// Combat exports - 3 attacks on J, K, L keys
+	// Combat exports
 	[Export] public AttackData Attack1Data { get; set; }
 	[Export] public AttackData Attack2Data { get; set; }
 	[Export] public AttackData Attack3Data { get; set; }
 	[Export] public float AttackDuration = 0.3f;
 
+	// IGameEntity implementation
+	[Export] public EntityStats Stats { get; set; }
+
+	// IDamageable implementation
+	public bool IsInvincible { get; private set; }
+
 	public bool IsFacingRight { get; private set; } = true;
 
 	public override void _Ready()
 	{
-		// Load stats from GameManager before calling base._Ready()
+		// Load and clone stats from GameManager
 		Stats = GameManager.Instance?.GetPlayerStats()?.Clone() ?? new EntityStats();
 
-		base._Ready();
+		// Setup sprite
+		_sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
+
+		// Setup invincibility timer
+		_invincibilityTimer = new Timer();
+		_invincibilityTimer.OneShot = true;
+		_invincibilityTimer.Timeout += OnInvincibilityEnded;
+		AddChild(_invincibilityTimer);
 
 		_debugLabel = GetNode<Label>("DebugLabel");
 		_attackHitBox = GetNodeOrNull<HitBox>("AttackHitBox");
 
 		SetupAttackTimer();
-		SetupDefaultAttacks();
+		LoadDefaultAttacks();
+	}
+
+	private void LoadDefaultAttacks()
+	{
+		Attack1Data ??= GD.Load<AttackData>("res://Scenes/Prefabs/Entities/Player/Attacks/Slash.tres");
+		Attack2Data ??= GD.Load<AttackData>("res://Scenes/Prefabs/Entities/Player/Attacks/Thrust.tres");
+		Attack3Data ??= GD.Load<AttackData>("res://Scenes/Prefabs/Entities/Player/Attacks/HeavySwing.tres");
 	}
 
 	private void SetupAttackTimer()
@@ -53,37 +74,10 @@ public partial class Player : GameEntity
 		AddChild(_attackTimer);
 	}
 
-	private void SetupDefaultAttacks()
-	{
-		// Default attack data if not assigned in editor
-		Attack1Data ??= new AttackData
-		{
-			AttackName = "Slash",
-			BaseDamage = 1,
-			KnockbackForce = 200f
-		};
-
-		Attack2Data ??= new AttackData
-		{
-			AttackName = "Thrust",
-			BaseDamage = 2,
-			KnockbackForce = 100f
-		};
-
-		Attack3Data ??= new AttackData
-		{
-			AttackName = "Heavy Swing",
-			BaseDamage = 3,
-			KnockbackForce = 350f,
-			CanCrit = true
-		};
-	}
-
 	public override void _Input(InputEvent @event)
 	{
 		if (!CanMove) return;
 
-		// Jump on press (grounded only)
 		if (@event.IsActionPressed("ui_accept") && IsOnFloor())
 		{
 			Vector2 velocity = Velocity;
@@ -91,7 +85,6 @@ public partial class Player : GameEntity
 			Velocity = velocity;
 		}
 
-		// Jump cut on release (while ascending)
 		if (@event.IsActionReleased("ui_accept") && Velocity.Y < 0)
 		{
 			Vector2 velocity = Velocity;
@@ -99,7 +92,6 @@ public partial class Player : GameEntity
 			Velocity = velocity;
 		}
 
-		// Attack inputs - J, K, L
 		if (!_isAttacking)
 		{
 			if (@event.IsActionPressed("attack_1"))
@@ -118,14 +110,12 @@ public partial class Player : GameEntity
 		Vector2 velocity = Velocity;
 		float deltaF = (float)delta;
 
-		// Apply gravity with fall multiplier when descending
 		if (!IsOnFloor())
 		{
 			float gravityMultiplier = velocity.Y > 0 ? FallGravityMultiplier : 1.0f;
 			velocity += GetGravity() * deltaF * gravityMultiplier;
 		}
 
-		// Handle horizontal movement
 		float direction = GetInputDirection();
 		if (direction != 0)
 		{
@@ -137,20 +127,18 @@ public partial class Player : GameEntity
 			velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * deltaF);
 		}
 
-		// Update sprite facing
-		Sprite.FlipH = !IsFacingRight;
+		if (_sprite != null)
+			_sprite.FlipH = !IsFacingRight;
 
-		// Update attack hitbox position based on facing direction
 		if (_attackHitBox != null)
 			_attackHitBox.Position = new Vector2(IsFacingRight ? 20 : -20, 0);
 
-		// Animation handling
-		if (!_isAttacking)
+		if (!_isAttacking && _sprite != null)
 		{
 			if (IsOnFloor())
-				Sprite.Play(direction == 0 ? "idle" : "run");
+				_sprite.Play(direction == 0 ? "idle" : "run");
 			else
-				Sprite.Play("jump");
+				_sprite.Play("jump");
 		}
 
 		Velocity = velocity;
@@ -178,17 +166,14 @@ public partial class Player : GameEntity
 
 		_isAttacking = true;
 
-		// Set the attack data and activate hitbox
 		_attackHitBox.SetAttack(attackData);
 		_attackHitBox.SetActive(true);
 
-		// Start timer to end attack
 		_attackTimer.WaitTime = AttackDuration;
 		_attackTimer.Start();
 
-		// Play attack animation if exists
-		if (Sprite.SpriteFrames.HasAnimation("attack"))
-			Sprite.Play("attack");
+		if (_sprite != null && _sprite.SpriteFrames.HasAnimation("attack"))
+			_sprite.Play("attack");
 	}
 
 	private void OnAttackFinished()
@@ -197,19 +182,80 @@ public partial class Player : GameEntity
 		_attackHitBox?.SetActive(false);
 	}
 
-	public override DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
+	public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
 	{
-		DamageResult result = base.TakeDamage(attackData, attackerStats, attackerPosition);
+		if (IsInvincible)
+			return DamageResult.Blocked;
 
-		// Notify GameManager specifically for player damage
-		GameManager.Instance?.OnPlayerDamaged(result.FinalDamage, Stats.CurrentHP, Stats.MaxHP);
+		DamageResult result = DamageCalculator.CalculateDamage(
+			attackData,
+			attackerStats,
+			Stats,
+			attackerPosition,
+			GlobalPosition);
+
+		Stats.CurrentHP -= result.FinalDamage;
+
+		// Apply knockback
+		if (result.KnockbackApplied != Vector2.Zero)
+			Velocity += result.KnockbackApplied;
+
+		// Start invincibility frames
+		StartInvincibility();
+		PlayHitEffect();
+
+		if (Stats.IsDead)
+		{
+			result.KilledTarget = true;
+			Die();
+		}
 
 		return result;
 	}
 
-	public override void Die()
+	private void StartInvincibility()
 	{
-		base.Die();
+		IsInvincible = true;
+		_invincibilityTimer.WaitTime = Stats.InvincibilityDuration;
+		_invincibilityTimer.Start();
+		StartInvincibilityVisual();
+	}
+
+	private void OnInvincibilityEnded()
+	{
+		IsInvincible = false;
+		StopInvincibilityVisual();
+	}
+
+	private void StartInvincibilityVisual()
+	{
+		if (_sprite != null)
+		{
+			Tween tween = CreateTween();
+			tween.SetLoops((int)(Stats.InvincibilityDuration / 0.1f));
+			tween.TweenProperty(_sprite, "modulate:a", 0.5f, 0.05f);
+			tween.TweenProperty(_sprite, "modulate:a", 1.0f, 0.05f);
+		}
+	}
+
+	private void StopInvincibilityVisual()
+	{
+		if (_sprite != null)
+			_sprite.Modulate = Colors.White;
+	}
+
+	private void PlayHitEffect()
+	{
+		if (_sprite != null)
+		{
+			Tween tween = CreateTween();
+			tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
+			tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
+		}
+	}
+
+	private void Die()
+	{
 		CanMove = false;
 		GameManager.Instance?.OnPlayerDied();
 	}
