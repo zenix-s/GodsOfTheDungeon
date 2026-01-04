@@ -2,8 +2,8 @@
 
 [ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="1_8e43r"]
 [ext_resource type="Script" uid="uid://bjuxgssqnv05a" path="res://Scenes/Prefabs/Entities/Enemies/Slime/Slime.cs" id="2_slime"]
-[ext_resource type="Script" path="res://Core/Components/HurtBoxComponent.cs" id="3_hurtbox"]
-[ext_resource type="Script" path="res://Core/Components/HitBoxComponent.cs" id="4_hitbox"]
+[ext_resource type="PackedScene" uid="uid://bxkh3tbtbjugh" path="res://Core/Components/HurtBoxComponent.tscn" id="3_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://hitbox_component" path="res://Core/Components/HitBoxComponent.tscn" id="4_hitbox"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_2ihda"]
 atlas = ExtResource("1_8e43r")
@@ -67,21 +67,17 @@ autoplay = "idle"
 position = Vector2(0, -5)
 shape = SubResource("CapsuleShape2D_8e43r")
 
-[node name="HurtBox" type="Area2D" parent="."]
+[node name="HurtBox" parent="." instance=ExtResource("3_hurtbox")]
 collision_layer = 64
 collision_mask = 128
-monitoring = false
-script = ExtResource("3_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox"]
 position = Vector2(0, -5)
 shape = SubResource("CapsuleShape2D_hurtbox")
 
-[node name="AttackHitBox" type="Area2D" parent="."]
+[node name="AttackHitBox" parent="." instance=ExtResource("4_hitbox")]
 collision_layer = 256
 collision_mask = 32
-monitorable = false
-script = ExtResource("4_hitbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitBox"]
 position = Vector2(0, -6)

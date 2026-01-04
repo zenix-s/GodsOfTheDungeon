@@ -85,4 +85,27 @@ public partial class HitBoxComponent : Area2D
     {
         AttackData = attackData;
     }
+
+    #region Configuration Helpers
+
+    /// <summary>
+    ///     Configure collision layer and mask for this hitbox.
+    /// </summary>
+    public void ConfigureCollision(uint layer, uint mask)
+    {
+        CollisionLayer = layer;
+        CollisionMask = mask;
+    }
+
+    /// <summary>
+    ///     Set the rectangle shape size (assumes CollisionShape2D child with RectangleShape2D).
+    /// </summary>
+    public void SetShapeSize(Vector2 size)
+    {
+        CollisionShape2D shape = GetNodeOrNull<CollisionShape2D>("CollisionShape2D");
+        if (shape?.Shape is RectangleShape2D rect)
+            rect.Size = size;
+    }
+
+    #endregion
 }

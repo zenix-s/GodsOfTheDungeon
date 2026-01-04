@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://bla7onkslwglf" path="res://Scenes/Prefabs/Entities/Player/Player.cs" id="1_ft8w5"]
 [ext_resource type="Texture2D" uid="uid://wk2nyy1hindf" path="res://Assets/Player/player.png" id="2_xjvg6"]
-[ext_resource type="Script" uid="uid://dddb2lxj52iwl" path="res://Core/Components/HurtBoxComponent.cs" id="3_hurtbox"]
-[ext_resource type="Script" uid="uid://0b6uo44lacmw" path="res://Core/Components/HitBoxComponent.cs" id="4_hitbox"]
+[ext_resource type="PackedScene" uid="uid://bxkh3tbtbjugh" path="res://Core/Components/HurtBoxComponent.tscn" id="3_hurtbox"]
+[ext_resource type="PackedScene" path="res://Core/Components/HitBoxComponent.tscn" id="4_hitbox"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_jcmh3"]
 atlas = ExtResource("2_xjvg6")
@@ -238,22 +238,18 @@ collision_mask = 8
 [node name="CollisionShape2D" type="CollisionShape2D" parent="CollectionArea"]
 shape = SubResource("CircleShape2D_jcmh3")
 
-[node name="HurtBox" type="Area2D" parent="."]
+[node name="HurtBox" parent="." instance=ExtResource("3_hurtbox")]
 collision_layer = 32
 collision_mask = 256
-monitoring = false
-script = ExtResource("3_hurtbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox"]
 position = Vector2(0, 2)
 shape = SubResource("CapsuleShape2D_hurtbox")
 
-[node name="AttackHitBox" type="Area2D" parent="."]
+[node name="AttackHitBox" parent="." instance=ExtResource("4_hitbox")]
 position = Vector2(20, 0)
 collision_layer = 128
 collision_mask = 64
-monitorable = false
-script = ExtResource("4_hitbox")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitBox"]
 shape = SubResource("RectangleShape2D_attack")

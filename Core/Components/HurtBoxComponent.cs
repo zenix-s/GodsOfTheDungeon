@@ -86,4 +86,30 @@ public partial class HurtBoxComponent : Area2D
     {
         return _ownerNode;
     }
+
+    #region Configuration Helpers
+
+    /// <summary>
+    ///     Configure collision layer and mask for this hurtbox.
+    /// </summary>
+    public void ConfigureCollision(uint layer, uint mask)
+    {
+        CollisionLayer = layer;
+        CollisionMask = mask;
+    }
+
+    /// <summary>
+    ///     Set the capsule shape size (assumes CollisionShape2D child with CapsuleShape2D).
+    /// </summary>
+    public void SetShapeSize(float radius, float height)
+    {
+        CollisionShape2D shape = GetNodeOrNull<CollisionShape2D>("CollisionShape2D");
+        if (shape?.Shape is CapsuleShape2D capsule)
+        {
+            capsule.Radius = radius;
+            capsule.Height = height;
+        }
+    }
+
+    #endregion
 }
