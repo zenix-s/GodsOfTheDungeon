@@ -5,12 +5,12 @@ using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
 using GodsOfTheDungeon.Core.Systems;
 
-public partial class Player : CharacterBody2D, IGameEntity, IDamageable
+public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttacker, IMovable
 {
-	private HitBox _attackHitBox;
+	private HitBoxComponent _attackHitBox;
 	private Timer _attackTimer;
-	private Timer _invincibilityTimer;
 	private AnimatedSprite2D _sprite;
+	private HealthComponent _health;
 
 	private Label _debugLabel;
 	private bool _isAttacking;
@@ -33,10 +33,32 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 	// IGameEntity implementation
 	[Export] public EntityStats Stats { get; set; }
 
-	// IDamageable implementation
-	public bool IsInvincible { get; private set; }
+	// IDamageable implementation - delegate to HealthComponent
+	public bool IsInvincible => _health?.IsInvincible ?? false;
 
 	public bool IsFacingRight { get; private set; } = true;
+
+	// IAttacker implementation
+	public AttackData CurrentAttack { get; private set; }
+
+	// IMovable implementation
+	float IMovable.Speed => Speed;
+	bool IMovable.CanMove { get => CanMove; set => CanMove = value; }
+
+	public void Move(Vector2 direction, float delta)
+	{
+		Vector2 velocity = Velocity;
+		if (direction != Vector2.Zero)
+		{
+			velocity.X = Mathf.MoveToward(velocity.X, direction.X * Speed, Acceleration * delta);
+			IsFacingRight = direction.X > 0;
+		}
+		else
+		{
+			velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * delta);
+		}
+		Velocity = velocity;
+	}
 
 	public override void _Ready()
 	{
@@ -46,14 +68,28 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 		// Setup sprite
 		_sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
 
-		// Setup invincibility timer
-		_invincibilityTimer = new Timer();
-		_invincibilityTimer.OneShot = true;
-		_invincibilityTimer.Timeout += OnInvincibilityEnded;
-		AddChild(_invincibilityTimer);
+		// Setup HealthComponent
+		_health = GetNodeOrNull<HealthComponent>("HealthComponent");
+		if (_health == null)
+		{
+			_health = new HealthComponent();
+			AddChild(_health);
+		}
+
+		// Initialize health from GameManager
+		var playerData = GameManager.Instance?.GetPlayerData();
+		if (playerData != null)
+			_health.Initialize(playerData.MaxHP, playerData.CurrentHP, playerData.InvincibilityDuration);
+
+		// Connect health signals
+		_health.DamageTaken += OnDamageTaken;
+		_health.Died += OnDied;
+		_health.InvincibilityStarted += OnInvincibilityStarted;
+		_health.InvincibilityEnded += OnInvincibilityEnded;
+		_health.HealthChanged += OnHealthChanged;
 
 		_debugLabel = GetNode<Label>("DebugLabel");
-		_attackHitBox = GetNodeOrNull<HitBox>("AttackHitBox");
+		_attackHitBox = GetNodeOrNull<HitBoxComponent>("AttackHitBox");
 
 		SetupAttackTimer();
 		LoadDefaultAttacks();
@@ -142,7 +178,7 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 		}
 
 		Velocity = velocity;
-		_debugLabel.Text = $"HP: {Stats.CurrentHP}/{Stats.MaxHP}\nVel: {Velocity}";
+		_debugLabel.Text = $"HP: {_health.CurrentHP}/{_health.MaxHP}\nVel: {Velocity}";
 		MoveAndSlide();
 	}
 
@@ -165,6 +201,7 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 		}
 
 		_isAttacking = true;
+		CurrentAttack = attackData;
 
 		_attackHitBox.SetAttack(attackData);
 		_attackHitBox.SetActive(true);
@@ -179,12 +216,13 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 	private void OnAttackFinished()
 	{
 		_isAttacking = false;
+		CurrentAttack = null;
 		_attackHitBox?.SetActive(false);
 	}
 
 	public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
 	{
-		if (IsInvincible)
+		if (_health.IsInvincible || _health.IsDead)
 			return DamageResult.Blocked;
 
 		DamageResult result = DamageCalculator.CalculateDamage(
@@ -194,37 +232,44 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 			attackerPosition,
 			GlobalPosition);
 
-		Stats.CurrentHP -= result.FinalDamage;
+		// Apply damage through HealthComponent (handles invincibility and death)
+		_health.ApplyDamage(result.FinalDamage, result.WasCritical);
 
 		// Apply knockback
 		if (result.KnockbackApplied != Vector2.Zero)
 			Velocity += result.KnockbackApplied;
 
-		// Start invincibility frames
-		StartInvincibility();
-		PlayHitEffect();
-
-		if (Stats.IsDead)
-		{
+		if (_health.IsDead)
 			result.KilledTarget = true;
-			Die();
-		}
 
 		return result;
 	}
 
-	private void StartInvincibility()
+	// Signal handlers from HealthComponent
+	private void OnDamageTaken(int damage, bool wasCritical)
 	{
-		IsInvincible = true;
-		_invincibilityTimer.WaitTime = Stats.InvincibilityDuration;
-		_invincibilityTimer.Start();
+		PlayHitEffect();
+	}
+
+	private void OnDied()
+	{
+		CanMove = false;
+		GameManager.Instance?.OnPlayerDied();
+	}
+
+	private void OnInvincibilityStarted()
+	{
 		StartInvincibilityVisual();
 	}
 
 	private void OnInvincibilityEnded()
 	{
-		IsInvincible = false;
 		StopInvincibilityVisual();
+	}
+
+	private void OnHealthChanged(int currentHP, int maxHP)
+	{
+		// Could update UI here if needed
 	}
 
 	private void StartInvincibilityVisual()
@@ -232,7 +277,7 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 		if (_sprite != null)
 		{
 			Tween tween = CreateTween();
-			tween.SetLoops((int)(Stats.InvincibilityDuration / 0.1f));
+			tween.SetLoops((int)(_health.InvincibilityDuration / 0.1f));
 			tween.TweenProperty(_sprite, "modulate:a", 0.5f, 0.05f);
 			tween.TweenProperty(_sprite, "modulate:a", 1.0f, 0.05f);
 		}
@@ -252,12 +297,6 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable
 			tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
 			tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
 		}
-	}
-
-	private void Die()
-	{
-		CanMove = false;
-		GameManager.Instance?.OnPlayerDied();
 	}
 
 	private void _OnCollectionAreaEntered(Node2D body)

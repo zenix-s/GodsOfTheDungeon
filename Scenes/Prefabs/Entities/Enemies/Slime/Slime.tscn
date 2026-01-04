@@ -2,8 +2,8 @@
 
 [ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="1_8e43r"]
 [ext_resource type="Script" uid="uid://bjuxgssqnv05a" path="res://Scenes/Prefabs/Entities/Enemies/Slime/Slime.cs" id="2_slime"]
-[ext_resource type="Script" uid="uid://bw7mt6pdqt1fb" path="res://Core/Components/HurtBox.cs" id="3_hurtbox"]
-[ext_resource type="Script" uid="uid://bfh1yrllj1g3d" path="res://Core/Components/HitBox.cs" id="4_hitbox"]
+[ext_resource type="Script" path="res://Core/Components/HurtBoxComponent.cs" id="3_hurtbox"]
+[ext_resource type="Script" path="res://Core/Components/HitBoxComponent.cs" id="4_hitbox"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_2ihda"]
 atlas = ExtResource("1_8e43r")

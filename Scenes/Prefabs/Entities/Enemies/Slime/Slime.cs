@@ -1,9 +1,10 @@
 using Godot;
+using GodsOfTheDungeon.Core.Components;
 using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
 using GodsOfTheDungeon.Core.Systems;
 
-public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
+public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, IAttacker
 {
     private Timer _attackCooldownTimer;
     private bool _canAttack = true;
@@ -11,6 +12,7 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
     private Player _targetPlayer;
     private bool _isPlayerInRange;
     private AnimatedSprite2D _sprite;
+    private HealthComponent _health;
 
     [Export] public float AttackCooldown = 1.5f;
     [Export] public float AttackRange = 20f;
@@ -21,20 +23,20 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
     // IGameEntity implementation
     [Export] public EntityStats Stats { get; set; }
 
-    // IDamageable implementation
-    public bool IsInvincible => false;
+    // IDamageable implementation - delegate to HealthComponent
+    public bool IsInvincible => _health?.IsInvincible ?? false;
+
+    // IAttacker implementation
+    public AttackData CurrentAttack => AttackData;
 
     public override void _Ready()
     {
         Stats = new EntityStats
         {
-            MaxHP = 20,
-            CurrentHP = 20,
             Attack = 3,
             Defense = 1,
             Speed = PatrolSpeed,
             KnockbackResistance = 0.3f,
-            InvincibilityDuration = 0f,
             CriticalChance = 0f
         };
 
@@ -45,6 +47,23 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
             KnockbackForce = 100f,
             CanCrit = false
         };
+
+        // Setup HealthComponent
+        _health = GetNodeOrNull<HealthComponent>("HealthComponent");
+        if (_health == null)
+        {
+            _health = new HealthComponent
+            {
+                MaxHP = 20,
+                InvincibilityDuration = 0f, // Slimes have no i-frames
+                StartAtMaxHP = true
+            };
+            AddChild(_health);
+        }
+
+        // Connect health signals
+        _health.DamageTaken += OnDamageTaken;
+        _health.Died += OnDied;
 
         _sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
 
@@ -85,7 +104,7 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
 
     public override void _PhysicsProcess(double delta)
     {
-        if (Stats.IsDead) return;
+        if (_health.IsDead) return;
 
         UpdateState();
         ProcessState((float)delta);
@@ -169,6 +188,9 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
 
     public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
     {
+        if (_health.IsDead)
+            return DamageResult.Blocked;
+
         DamageResult result = DamageCalculator.CalculateDamage(
             attackData,
             attackerStats,
@@ -176,21 +198,28 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
             attackerPosition,
             GlobalPosition);
 
-        Stats.CurrentHP -= result.FinalDamage;
+        // Apply damage through HealthComponent
+        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
 
         // Apply knockback
         if (result.KnockbackApplied != Vector2.Zero)
             Velocity += result.KnockbackApplied;
 
-        PlayHitEffect();
-
-        if (Stats.IsDead)
-        {
+        if (_health.IsDead)
             result.KilledTarget = true;
-            Die();
-        }
 
         return result;
+    }
+
+    // Signal handlers from HealthComponent
+    private void OnDamageTaken(int damage, bool wasCritical)
+    {
+        PlayHitEffect();
+    }
+
+    private void OnDied()
+    {
+        QueueFree();
     }
 
     private void PlayHitEffect()
@@ -201,11 +230,6 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy
             tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
             tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
         }
-    }
-
-    private void Die()
-    {
-        QueueFree();
     }
 
     // IEnemy implementation
