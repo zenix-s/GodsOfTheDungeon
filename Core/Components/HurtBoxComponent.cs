@@ -14,6 +14,10 @@ public partial class HurtBoxComponent : Area2D
     private IDamageable _owner;
     private Node _ownerNode;
 
+    public event Action<int, bool> DamageReceived; // (damage, wasCritical)
+    public event Action HitReceived;
+
+
     public override void _Ready()
     {
         _owner = GetOwnerEntity();
@@ -82,11 +86,4 @@ public partial class HurtBoxComponent : Area2D
     {
         return _ownerNode;
     }
-
-    #region Events
-
-    public event Action<int, bool> DamageReceived; // (damage, wasCritical)
-    public event Action HitReceived;
-
-    #endregion
 }

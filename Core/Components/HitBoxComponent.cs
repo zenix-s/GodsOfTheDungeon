@@ -17,11 +17,7 @@ public partial class HitBoxComponent : Area2D
     [Export] public AttackData AttackData { get; set; }
     [Export] public bool IsActive { get; set; }
 
-    #region Events
-
     public event Action<Node, int, bool> HitConnected; // (target, damage, wasCritical)
-
-    #endregion
 
     public override void _Ready()
     {

@@ -100,6 +100,17 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttack
         _sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
 
         // Setup HealthComponent
+        SetupHealthComponent();
+
+        _debugLabel = GetNode<Label>("DebugLabel");
+        _attackHitBox = GetNodeOrNull<HitBoxComponent>("AttackHitBox");
+
+        SetupAttackTimer();
+        LoadDefaultAttacks();
+    }
+
+    private void SetupHealthComponent()
+    {
         _health = GetNodeOrNull<HealthComponent>("HealthComponent");
         if (_health == null)
         {
@@ -118,12 +129,6 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttack
         _health.InvincibilityStarted += OnInvincibilityStarted;
         _health.InvincibilityEnded += OnInvincibilityEnded;
         _health.HealthChanged += OnHealthChanged;
-
-        _debugLabel = GetNode<Label>("DebugLabel");
-        _attackHitBox = GetNodeOrNull<HitBoxComponent>("AttackHitBox");
-
-        SetupAttackTimer();
-        LoadDefaultAttacks();
     }
 
     private void LoadDefaultAttacks()
