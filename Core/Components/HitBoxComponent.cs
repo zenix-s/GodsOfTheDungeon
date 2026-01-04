@@ -1,111 +1,82 @@
-using System;
 using Godot;
 using GodsOfTheDungeon.Core.Data;
-using GodsOfTheDungeon.Core.Interfaces;
 
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-///     Component that detects collisions and initiates damage on HurtBoxComponent.
-///     Calls HurtBoxComponent.NotifyHit() which then delegates to the parent IDamageable.
+///     Component that represents an attack hitbox.
+///     Passive component - detected by HurtBoxComponent, not the detector.
+///     Parent sets OwnerStats for damage calculation.
 /// </summary>
 public partial class HitBoxComponent : Area2D
 {
-	private IGameEntity _owner;
-	private Node _ownerNode;
+    [Signal]
+    public delegate void HitConnectedEventHandler(Node target);
 
-	[Export] public AttackData AttackData { get; set; }
-	[Export] public bool IsActive { get; set; }
+    [Export] public AttackData AttackData { get; set; }
+    [Export] public bool IsActive { get; set; }
 
-	public event Action<Node, int, bool> HitConnected; // (target, damage, wasCritical)
+    public EntityStats OwnerStats { get; private set; }
 
-	public override void _Ready()
-	{
-		_ownerNode = GetOwnerNode();
-		_owner = _ownerNode as IGameEntity;
+    public override void _Ready()
+    {
+        Monitoring = false; // No detecta
+        Monitorable = true; // Es detectado por HurtBox
+    }
 
-		Monitoring = IsActive;
-		Monitorable = false;
+    /// <summary>
+    ///     Parent calls this to set their stats for damage calculation.
+    /// </summary>
+    public void SetOwnerStats(EntityStats stats)
+    {
+        OwnerStats = stats;
+    }
 
-		AreaEntered += OnAreaEntered;
-	}
+    /// <summary>
+    ///     Activate or deactivate this hitbox.
+    /// </summary>
+    public void SetActive(bool active)
+    {
+        IsActive = active;
+        SetDeferred("monitorable", active);
+    }
 
-	private Node GetOwnerNode()
-	{
-		Node current = GetParent();
-		while (current != null)
-		{
-			if (current is IGameEntity)
-				return current;
-			current = current.GetParent();
-		}
+    /// <summary>
+    ///     Set the attack data at runtime.
+    /// </summary>
+    public void SetAttack(AttackData attackData)
+    {
+        AttackData = attackData;
+    }
 
-		GD.PushWarning("HitBoxComponent: No IGameEntity owner found");
-		return null;
-	}
+    /// <summary>
+    ///     Called by HurtBoxComponent when hit connects (for feedback to attacker).
+    /// </summary>
+    public void NotifyHitConnected(Node target)
+    {
+        EmitSignal(SignalName.HitConnected, target);
+    }
 
-	private void OnAreaEntered(Area2D area)
-	{
-		if (!IsActive) return;
+    #region Configuration Helpers
 
-		if (area is HurtBoxComponent hurtBoxComponent) ProcessHit(hurtBoxComponent);
-	}
+    /// <summary>
+    ///     Configure collision layer and mask for this hitbox.
+    /// </summary>
+    public void ConfigureCollision(uint layer, uint mask)
+    {
+        CollisionLayer = layer;
+        CollisionMask = mask;
+    }
 
-	private void ProcessHit(HurtBoxComponent hurtBox)
-	{
-		// Don't hit yourself
-		if (hurtBox.GetOwnerNode() == _ownerNode) return;
+    /// <summary>
+    ///     Set the rectangle shape size (assumes CollisionShape2D child with RectangleShape2D).
+    /// </summary>
+    public void SetShapeSize(Vector2 size)
+    {
+        CollisionShape2D shape = GetNodeOrNull<CollisionShape2D>("CollisionShape2D");
+        if (shape?.Shape is RectangleShape2D rect)
+            rect.Size = size;
+    }
 
-		if (AttackData == null)
-		{
-			GD.PushError("HitBoxComponent: No AttackData assigned");
-			return;
-		}
-
-		EntityStats stats = _owner?.Stats ?? new EntityStats();
-
-		// NEW FLOW: Call NotifyHit on HurtBoxComponent
-		// HurtBoxComponent is responsible for calling TakeDamage on its parent
-		DamageResult result = hurtBox.NotifyHit(AttackData, stats, GlobalPosition);
-
-		if (!result.WasBlocked)
-		{
-			Node targetNode = hurtBox.GetOwnerNode();
-			HitConnected?.Invoke(targetNode, result.FinalDamage, result.WasCritical);
-		}
-	}
-
-	public void SetActive(bool active)
-	{
-		IsActive = active;
-		SetDeferred("monitoring", active);
-	}
-
-	public void SetAttack(AttackData attackData)
-	{
-		AttackData = attackData;
-	}
-
-	#region Configuration Helpers
-
-	/// <summary>
-	///     Configure collision layer and mask for this hitbox.
-	/// </summary>
-	public void ConfigureCollision(uint layer, uint mask)
-	{
-		CollisionLayer = layer;
-		CollisionMask = mask;
-	}
-
-	/// <summary>
-	///     Set the rectangle shape size (assumes CollisionShape2D child with RectangleShape2D).
-	/// </summary>
-	public void SetShapeSize(Vector2 size)
-	{
-		CollisionShape2D shape = GetNodeOrNull<CollisionShape2D>("CollisionShape2D");
-		if (shape?.Shape is RectangleShape2D rect)
-			rect.Size = size;
-	}
-
-	#endregion
+    #endregion
 }

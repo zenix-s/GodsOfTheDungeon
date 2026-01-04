@@ -1,161 +1,159 @@
-using System;
 using Godot;
 
 namespace GodsOfTheDungeon.Core.Components;
 
 public partial class HealthComponent : Node
 {
-	private Timer _invincibilityTimer;
+    [Signal]
+    public delegate void DamageTakenEventHandler(int damage, bool wasCritical);
 
-	public override void _Ready()
-	{
-		if (StartAtMaxHP)
-			CurrentHP = MaxHP;
+    [Signal]
+    public delegate void DiedEventHandler();
 
-		SetupInvincibilityTimer();
-	}
+    [Signal]
+    public delegate void HealedEventHandler(int amount);
 
-	private void SetupInvincibilityTimer()
-	{
-		_invincibilityTimer = new Timer();
-		_invincibilityTimer.OneShot = true;
-		_invincibilityTimer.Timeout += OnInvincibilityEnded;
-		AddChild(_invincibilityTimer);
-	}
+    [Signal]
+    public delegate void HealthChangedEventHandler(int currentHP, int maxHP);
 
-	/// <summary>
-	///     Apply damage to this health component.
-	///     Returns true if damage was applied, false if blocked (invincible or dead).
-	/// </summary>
-	public bool ApplyDamage(int damage, bool wasCritical = false)
-	{
-		if (IsDead || IsInvincible || damage <= 0)
-			return false;
+    [Signal]
+    public delegate void InvincibilityEndedEventHandler();
 
-		CurrentHP = Mathf.Max(0, CurrentHP - damage);
+    [Signal]
+    public delegate void InvincibilityStartedEventHandler();
 
-		DamageTaken?.Invoke(damage, wasCritical);
-		HealthChanged?.Invoke(CurrentHP, MaxHP);
+    private Timer _invincibilityTimer;
 
-		if (InvincibilityDuration > 0)
-			StartInvincibility();
+    [Export] public int MaxHP { get; set; } = 100;
+    [Export] public float InvincibilityDuration { get; set; }
+    [Export] public bool StartAtMaxHP { get; set; } = true;
 
-		if (IsDead)
-			Died?.Invoke();
+    public int CurrentHP { get; private set; }
+    public bool IsDead => CurrentHP <= 0;
+    public bool IsInvincible { get; private set; }
+    public float HealthPercentage => MaxHP > 0 ? (float)CurrentHP / MaxHP : 0f;
 
-		return true;
-	}
+    public override void _Ready()
+    {
+        if (StartAtMaxHP)
+            CurrentHP = MaxHP;
 
-	/// <summary>
-	///     Heal the entity by the specified amount.
-	/// </summary>
-	public void Heal(int amount)
-	{
-		if (IsDead || amount <= 0)
-			return;
+        SetupInvincibilityTimer();
+    }
 
-		int previousHP = CurrentHP;
-		CurrentHP = Mathf.Min(CurrentHP + amount, MaxHP);
-		int actualHealed = CurrentHP - previousHP;
+    private void SetupInvincibilityTimer()
+    {
+        _invincibilityTimer = new Timer();
+        _invincibilityTimer.OneShot = true;
+        _invincibilityTimer.Timeout += OnInvincibilityEnded;
+        AddChild(_invincibilityTimer);
+    }
 
-		if (actualHealed > 0)
-		{
-			Healed?.Invoke(actualHealed);
-			HealthChanged?.Invoke(CurrentHP, MaxHP);
-		}
-	}
+    /// <summary>
+    ///     Apply damage to this health component.
+    ///     Returns true if damage was applied, false if blocked (invincible or dead).
+    /// </summary>
+    public bool ApplyDamage(int damage, bool wasCritical = false)
+    {
+        if (IsDead || IsInvincible || damage <= 0)
+            return false;
 
-	/// <summary>
-	///     Set current HP to a specific value.
-	/// </summary>
-	public void SetHP(int hp)
-	{
-		CurrentHP = Mathf.Clamp(hp, 0, MaxHP);
-		HealthChanged?.Invoke(CurrentHP, MaxHP);
+        CurrentHP = Mathf.Max(0, CurrentHP - damage);
 
-		if (IsDead)
-			Died?.Invoke();
-	}
+        EmitSignal(SignalName.DamageTaken, damage, wasCritical);
+        EmitSignal(SignalName.HealthChanged, CurrentHP, MaxHP);
 
-	/// <summary>
-	///     Reset HP to maximum.
-	/// </summary>
-	public void ResetToMax()
-	{
-		CurrentHP = MaxHP;
-		HealthChanged?.Invoke(CurrentHP, MaxHP);
-	}
+        if (InvincibilityDuration > 0)
+            StartInvincibility();
 
-	/// <summary>
-	///     Manually start invincibility frames.
-	/// </summary>
-	public void StartInvincibility(float? customDuration = null)
-	{
-		float duration = customDuration ?? InvincibilityDuration;
-		if (duration <= 0)
-			return;
+        if (IsDead)
+            EmitSignal(SignalName.Died);
 
-		IsInvincible = true;
-		_invincibilityTimer.WaitTime = duration;
-		_invincibilityTimer.Start();
+        return true;
+    }
 
-		InvincibilityStarted?.Invoke();
-	}
+    /// <summary>
+    ///     Heal the entity by the specified amount.
+    /// </summary>
+    public void Heal(int amount)
+    {
+        if (IsDead || amount <= 0)
+            return;
 
-	/// <summary>
-	///     Manually end invincibility frames.
-	/// </summary>
-	public void EndInvincibility()
-	{
-		if (!IsInvincible)
-			return;
+        int previousHP = CurrentHP;
+        CurrentHP = Mathf.Min(CurrentHP + amount, MaxHP);
+        int actualHealed = CurrentHP - previousHP;
 
-		_invincibilityTimer.Stop();
-		OnInvincibilityEnded();
-	}
+        if (actualHealed > 0)
+        {
+            EmitSignal(SignalName.Healed, actualHealed);
+            EmitSignal(SignalName.HealthChanged, CurrentHP, MaxHP);
+        }
+    }
 
-	private void OnInvincibilityEnded()
-	{
-		IsInvincible = false;
-		InvincibilityEnded?.Invoke();
-	}
+    /// <summary>
+    ///     Set current HP to a specific value.
+    /// </summary>
+    public void SetHP(int hp)
+    {
+        CurrentHP = Mathf.Clamp(hp, 0, MaxHP);
+        EmitSignal(SignalName.HealthChanged, CurrentHP, MaxHP);
 
-	/// <summary>
-	///     Initialize health with specific values (useful for save/load).
-	/// </summary>
-	public void Initialize(int maxHP, int currentHP, float invincibilityDuration = 0f)
-	{
-		MaxHP = maxHP;
-		CurrentHP = currentHP;
-		InvincibilityDuration = invincibilityDuration;
-		HealthChanged?.Invoke(CurrentHP, MaxHP);
-	}
+        if (IsDead)
+            EmitSignal(SignalName.Died);
+    }
 
-	#region Events
+    /// <summary>
+    ///     Reset HP to maximum.
+    /// </summary>
+    public void ResetToMax()
+    {
+        CurrentHP = MaxHP;
+        EmitSignal(SignalName.HealthChanged, CurrentHP, MaxHP);
+    }
 
-	public event Action<int, int> HealthChanged; // (currentHP, maxHP)
-	public event Action<int, bool> DamageTaken; // (damage, wasCritical)
-	public event Action<int> Healed; // (amount)
-	public event Action Died;
-	public event Action InvincibilityStarted;
-	public event Action InvincibilityEnded;
+    /// <summary>
+    ///     Manually start invincibility frames.
+    /// </summary>
+    public void StartInvincibility(float? customDuration = null)
+    {
+        float duration = customDuration ?? InvincibilityDuration;
+        if (duration <= 0)
+            return;
 
-	#endregion
+        IsInvincible = true;
+        _invincibilityTimer.WaitTime = duration;
+        _invincibilityTimer.Start();
 
-	#region Exports
+        EmitSignal(SignalName.InvincibilityStarted);
+    }
 
-	[Export] public int MaxHP { get; set; } = 100;
-	[Export] public float InvincibilityDuration { get; set; }
-	[Export] public bool StartAtMaxHP { get; set; } = true;
+    /// <summary>
+    ///     Manually end invincibility frames.
+    /// </summary>
+    public void EndInvincibility()
+    {
+        if (!IsInvincible)
+            return;
 
-	#endregion
+        _invincibilityTimer.Stop();
+        OnInvincibilityEnded();
+    }
 
-	#region Properties
+    private void OnInvincibilityEnded()
+    {
+        IsInvincible = false;
+        EmitSignal(SignalName.InvincibilityEnded);
+    }
 
-	public int CurrentHP { get; private set; }
-	public bool IsDead => CurrentHP <= 0;
-	public bool IsInvincible { get; private set; }
-	public float HealthPercentage => MaxHP > 0 ? (float)CurrentHP / MaxHP : 0f;
-
-	#endregion
+    /// <summary>
+    ///     Initialize health with specific values (useful for save/load).
+    /// </summary>
+    public void Initialize(int maxHP, int currentHP, float invincibilityDuration = 0f)
+    {
+        MaxHP = maxHP;
+        CurrentHP = currentHP;
+        InvincibilityDuration = invincibilityDuration;
+        EmitSignal(SignalName.HealthChanged, CurrentHP, MaxHP);
+    }
 }

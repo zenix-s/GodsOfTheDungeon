@@ -1,90 +1,36 @@
-using System;
 using Godot;
 using GodsOfTheDungeon.Core.Data;
-using GodsOfTheDungeon.Core.Interfaces;
 
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-///     Component that receives damage and notifies its parent IDamageable.
-///     This is the active receiver in the damage flow - it calls TakeDamage on its parent.
+///     Component that detects incoming attacks and emits signals.
+///     Active detector - monitors for HitBoxComponent collisions.
+///     Parent connects to HitReceived signal to handle damage.
 /// </summary>
 public partial class HurtBoxComponent : Area2D
 {
-    private IDamageable _owner;
-    private Node _ownerNode;
-
-    public event Action<int, bool> DamageReceived; // (damage, wasCritical)
-    public event Action HitReceived;
-
+    [Signal]
+    public delegate void HitReceivedEventHandler(AttackData attackData, EntityStats attackerStats,
+        Vector2 attackerPosition);
 
     public override void _Ready()
     {
-        _owner = GetOwnerEntity();
-        _ownerNode = _owner as Node;
-
-        if (_owner == null)
-            GD.PushError($"HurtBoxComponent: Owner must implement IDamageable. Node: {GetPath()}");
-
-        Monitorable = true;
-        Monitoring = false;
+        Monitoring = true; // Detecta HitBox
+        Monitorable = false; // No necesita ser detectado
+        AreaEntered += OnAreaEntered;
     }
 
-    private IDamageable GetOwnerEntity()
+    private void OnAreaEntered(Area2D area)
     {
-        Node current = GetParent();
-        while (current != null)
+        if (area is HitBoxComponent hitBox && hitBox.IsActive)
         {
-            if (current is IDamageable damageable)
-                return damageable;
-            current = current.GetParent();
+            EntityStats stats = hitBox.OwnerStats ?? new EntityStats();
+            EmitSignal(SignalName.HitReceived, hitBox.AttackData, stats, hitBox.GlobalPosition);
+
+            // Notify the hitbox that hit connected (for attacker feedback)
+            hitBox.NotifyHitConnected(GetParent());
         }
-
-        return null;
-    }
-
-    /// <summary>
-    ///     Called by HitBoxComponent when a hit connects.
-    ///     HurtBoxComponent actively calls TakeDamage on its parent IDamageable.
-    /// </summary>
-    public DamageResult NotifyHit(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (_owner == null)
-        {
-            GD.PushError("HurtBoxComponent: No owner to receive damage");
-            return DamageResult.Blocked;
-        }
-
-        if (_owner.IsInvincible)
-            return DamageResult.Blocked;
-
-        // Invoke event before processing (allows for shields, damage reduction hooks)
-        HitReceived?.Invoke();
-
-        // Delegate damage handling to parent IDamageable
-        DamageResult result = _owner.TakeDamage(attackData, attackerStats, attackerPosition);
-
-        // Invoke damage received event after processing
-        if (!result.WasBlocked)
-            DamageReceived?.Invoke(result.FinalDamage, result.WasCritical);
-
-        return result;
-    }
-
-    /// <summary>
-    ///     Returns the parent IDamageable for reference.
-    /// </summary>
-    public IDamageable GetDamageable()
-    {
-        return _owner;
-    }
-
-    /// <summary>
-    ///     Returns the owner node for self-hit prevention.
-    /// </summary>
-    public Node GetOwnerNode()
-    {
-        return _ownerNode;
     }
 
     #region Configuration Helpers

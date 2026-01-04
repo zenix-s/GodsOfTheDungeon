@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using GodsOfTheDungeon.Autoloads;
 using GodsOfTheDungeon.Core.Components;
@@ -7,329 +8,379 @@ using GodsOfTheDungeon.Core.Systems;
 
 public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttacker, IMovable
 {
-	private HitBoxComponent _attackHitBox;
-	private Timer _attackTimer;
+    // Attack configs: animation name and duration per attack
+    private readonly Dictionary<int, (string anim, float duration)> _attackConfigs = new()
+    {
+        { 1, ("attack_slash", 0.25f) },
+        { 2, ("attack_thrust", 0.3f) },
+        { 3, ("attack_heavy", 0.5f) }
+    };
 
-	private Label _debugLabel;
-	private HealthComponent _health;
-	private bool _isAttacking;
-	private AnimatedSprite2D _sprite;
+    private Timer _attackTimer;
+    private AnimatedSprite2D _currentEffectSprite;
+    private HitBoxComponent _currentHitBox;
 
-	// Movement exports
-	[Export] public float Acceleration = 1500.0f;
-	[Export] public float AttackDuration = 0.3f;
-	[Export] public bool CanMove = true;
-	[Export] public float FallGravityMultiplier = 2.5f;
-	[Export] public float Friction = 1200.0f;
-	[Export] public float JumpCutMultiplier = 0.5f;
-	[Export] public float JumpVelocity = -400.0f;
-	[Export] public float Speed = 300.0f;
+    private Label _debugLabel;
+    private HealthComponent _health;
+    private HitBoxComponent _heavySwingHitBox;
+    private HurtBoxComponent _hurtBox;
+    private bool _isAttacking;
+    private HitBoxComponent _slashHitBox;
+    private AnimatedSprite2D _sprite;
+    private HitBoxComponent _thrustHitBox;
 
-	// Combat exports
-	[Export] public AttackData Attack1Data { get; set; }
-	[Export] public AttackData Attack2Data { get; set; }
-	[Export] public AttackData Attack3Data { get; set; }
+    // Movement exports
+    [Export] public float Acceleration = 1500.0f;
+    [Export] public bool CanMove = true;
+    [Export] public float FallGravityMultiplier = 2.5f;
+    [Export] public float Friction = 1200.0f;
+    [Export] public float JumpCutMultiplier = 0.5f;
+    [Export] public float JumpVelocity = -400.0f;
+    [Export] public float Speed = 300.0f;
 
-	public bool IsFacingRight { get; private set; } = true;
+    public bool IsFacingRight { get; private set; } = true;
 
-	// IAttacker implementation
-	public AttackData CurrentAttack { get; private set; }
+    // IAttacker implementation
+    public AttackData CurrentAttack { get; private set; }
 
-	// IDamageable implementation - delegate to HealthComponent
-	public bool IsInvincible => _health?.IsInvincible ?? false;
+    // IDamageable implementation (kept for direct damage sources like traps)
+    public bool IsInvincible => _health?.IsInvincible ?? false;
 
-	public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-	{
-		if (_health.IsInvincible || _health.IsDead)
-			return DamageResult.Blocked;
+    public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
+    {
+        // Delegate to the same logic as HurtBox signal handler
+        OnHitReceived(attackData, attackerStats, attackerPosition);
 
-		DamageResult result = DamageCalculator.CalculateDamage(
-			attackData,
-			attackerStats,
-			Stats,
-			attackerPosition,
-			GlobalPosition);
+        return new DamageResult { WasBlocked = _health.IsInvincible || _health.IsDead };
+    }
 
-		// Apply damage through HealthComponent (handles invincibility and death)
-		_health.ApplyDamage(result.FinalDamage, result.WasCritical);
+    // IGameEntity implementation
+    [Export] public EntityStats Stats { get; set; }
 
-		// Apply knockback
-		if (result.KnockbackApplied != Vector2.Zero)
-			Velocity += result.KnockbackApplied;
+    // IMovable implementation
+    float IMovable.Speed => Speed;
 
-		if (_health.IsDead)
-			result.KilledTarget = true;
+    bool IMovable.CanMove
+    {
+        get => CanMove;
+        set => CanMove = value;
+    }
 
-		return result;
-	}
+    public void Move(Vector2 direction, float delta)
+    {
+        Vector2 velocity = Velocity;
+        if (direction != Vector2.Zero)
+        {
+            velocity.X = Mathf.MoveToward(velocity.X, direction.X * Speed, Acceleration * delta);
+            IsFacingRight = direction.X > 0;
+        }
+        else
+        {
+            velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * delta);
+        }
 
-	// IGameEntity implementation
-	[Export] public EntityStats Stats { get; set; }
+        Velocity = velocity;
+    }
 
-	// IMovable implementation
-	float IMovable.Speed => Speed;
+    public override void _Ready()
+    {
+        // Load and clone stats from GameManager
+        Stats = GameManager.Instance?.GetPlayerStats()?.Clone() ?? new EntityStats();
 
-	bool IMovable.CanMove
-	{
-		get => CanMove;
-		set => CanMove = value;
-	}
+        // Setup sprite
+        _sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
 
-	public void Move(Vector2 direction, float delta)
-	{
-		Vector2 velocity = Velocity;
-		if (direction != Vector2.Zero)
-		{
-			velocity.X = Mathf.MoveToward(velocity.X, direction.X * Speed, Acceleration * delta);
-			IsFacingRight = direction.X > 0;
-		}
-		else
-		{
-			velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * delta);
-		}
+        // Setup components
+        SetupHealthComponent();
+        SetupHurtBoxComponent();
+        SetupHitBoxComponents();
 
-		Velocity = velocity;
-	}
+        _debugLabel = GetNode<Label>("DebugLabel");
 
-	public override void _Ready()
-	{
-		// Load and clone stats from GameManager
-		Stats = GameManager.Instance?.GetPlayerStats()?.Clone() ?? new EntityStats();
+        SetupAttackTimer();
+    }
 
-		// Setup sprite
-		_sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
+    private void SetupHealthComponent()
+    {
+        _health = GetNodeOrNull<HealthComponent>("HealthComponent");
+        if (_health == null)
+        {
+            _health = new HealthComponent();
+            AddChild(_health);
+        }
 
-		// Setup HealthComponent
-		SetupHealthComponent();
+        // Initialize health from GameManager
+        PlayerData playerData = GameManager.Instance?.GetPlayerData();
+        if (playerData != null)
+            _health.Initialize(playerData.MaxHP, playerData.CurrentHP, playerData.InvincibilityDuration);
 
-		_debugLabel = GetNode<Label>("DebugLabel");
-		_attackHitBox = GetNodeOrNull<HitBoxComponent>("AttackHitBox");
+        // Connect health signals
+        _health.DamageTaken += OnDamageTaken;
+        _health.Died += OnDied;
+        _health.InvincibilityStarted += OnInvincibilityStarted;
+        _health.InvincibilityEnded += OnInvincibilityEnded;
+        _health.HealthChanged += OnHealthChanged;
+    }
 
-		SetupAttackTimer();
-		LoadDefaultAttacks();
-	}
+    private void SetupHurtBoxComponent()
+    {
+        _hurtBox = GetNodeOrNull<HurtBoxComponent>("HurtBox");
+        if (_hurtBox != null)
+            _hurtBox.HitReceived += OnHitReceived;
+    }
 
-	private void SetupHealthComponent()
-	{
-		_health = GetNodeOrNull<HealthComponent>("HealthComponent");
-		if (_health == null)
-		{
-			_health = new HealthComponent();
-			AddChild(_health);
-		}
+    private void SetupHitBoxComponents()
+    {
+        _slashHitBox = GetNodeOrNull<HitBoxComponent>("SlashHitBox");
+        _thrustHitBox = GetNodeOrNull<HitBoxComponent>("ThrustHitBox");
+        _heavySwingHitBox = GetNodeOrNull<HitBoxComponent>("HeavySwingHitBox");
 
-		// Initialize health from GameManager
-		PlayerData playerData = GameManager.Instance?.GetPlayerData();
-		if (playerData != null)
-			_health.Initialize(playerData.MaxHP, playerData.CurrentHP, playerData.InvincibilityDuration);
+        // Set owner stats for damage calculation
+        _slashHitBox?.SetOwnerStats(Stats);
+        _thrustHitBox?.SetOwnerStats(Stats);
+        _heavySwingHitBox?.SetOwnerStats(Stats);
+    }
 
-		// Connect health signals
-		_health.DamageTaken += OnDamageTaken;
-		_health.Died += OnDied;
-		_health.InvincibilityStarted += OnInvincibilityStarted;
-		_health.InvincibilityEnded += OnInvincibilityEnded;
-		_health.HealthChanged += OnHealthChanged;
-	}
+    private void SetupAttackTimer()
+    {
+        _attackTimer = new Timer();
+        _attackTimer.OneShot = true;
+        _attackTimer.Timeout += OnAttackFinished;
+        AddChild(_attackTimer);
+    }
 
-	private void LoadDefaultAttacks()
-	{
-		Attack1Data ??= GD.Load<AttackData>("res://Scenes/Prefabs/Entities/Player/Attacks/Slash.tres");
-		Attack2Data ??= GD.Load<AttackData>("res://Scenes/Prefabs/Entities/Player/Attacks/Thrust.tres");
-		Attack3Data ??= GD.Load<AttackData>("res://Scenes/Prefabs/Entities/Player/Attacks/HeavySwing.tres");
-	}
+    public override void _Input(InputEvent @event)
+    {
+        if (!CanMove) return;
 
-	private void SetupAttackTimer()
-	{
-		_attackTimer = new Timer();
-		_attackTimer.OneShot = true;
-		_attackTimer.Timeout += OnAttackFinished;
-		AddChild(_attackTimer);
-	}
+        if (@event.IsActionPressed("ui_accept") && IsOnFloor())
+        {
+            Vector2 velocity = Velocity;
+            velocity.Y = JumpVelocity;
+            Velocity = velocity;
+        }
 
-	public override void _Input(InputEvent @event)
-	{
-		if (!CanMove) return;
+        if (@event.IsActionReleased("ui_accept") && Velocity.Y < 0)
+        {
+            Vector2 velocity = Velocity;
+            velocity.Y *= JumpCutMultiplier;
+            Velocity = velocity;
+        }
 
-		if (@event.IsActionPressed("ui_accept") && IsOnFloor())
-		{
-			Vector2 velocity = Velocity;
-			velocity.Y = JumpVelocity;
-			Velocity = velocity;
-		}
+        if (!_isAttacking)
+        {
+            if (@event.IsActionPressed("attack_1"))
+                PerformAttack(1, _slashHitBox);
+            else if (@event.IsActionPressed("attack_2"))
+                PerformAttack(2, _thrustHitBox);
+            else if (@event.IsActionPressed("attack_3"))
+                PerformAttack(3, _heavySwingHitBox);
+        }
+    }
 
-		if (@event.IsActionReleased("ui_accept") && Velocity.Y < 0)
-		{
-			Vector2 velocity = Velocity;
-			velocity.Y *= JumpCutMultiplier;
-			Velocity = velocity;
-		}
+    public override void _PhysicsProcess(double delta)
+    {
+        if (!CanMove) return;
 
-		if (!_isAttacking)
-		{
-			if (@event.IsActionPressed("attack_1"))
-				PerformAttack(Attack1Data);
-			else if (@event.IsActionPressed("attack_2"))
-				PerformAttack(Attack2Data);
-			else if (@event.IsActionPressed("attack_3"))
-				PerformAttack(Attack3Data);
-		}
-	}
+        Vector2 velocity = Velocity;
+        float deltaF = (float)delta;
 
-	public override void _PhysicsProcess(double delta)
-	{
-		if (!CanMove) return;
+        if (!IsOnFloor())
+        {
+            float gravityMultiplier = velocity.Y > 0 ? FallGravityMultiplier : 1.0f;
+            velocity += GetGravity() * deltaF * gravityMultiplier;
+        }
 
-		Vector2 velocity = Velocity;
-		float deltaF = (float)delta;
+        float direction = GetInputDirection();
+        if (direction != 0)
+        {
+            velocity.X = Mathf.MoveToward(velocity.X, direction * Speed, Acceleration * deltaF);
+            IsFacingRight = direction > 0;
+        }
+        else
+        {
+            velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * deltaF);
+        }
 
-		if (!IsOnFloor())
-		{
-			float gravityMultiplier = velocity.Y > 0 ? FallGravityMultiplier : 1.0f;
-			velocity += GetGravity() * deltaF * gravityMultiplier;
-		}
+        if (_sprite != null)
+            _sprite.FlipH = !IsFacingRight;
 
-		float direction = GetInputDirection();
-		if (direction != 0)
-		{
-			velocity.X = Mathf.MoveToward(velocity.X, direction * Speed, Acceleration * deltaF);
-			IsFacingRight = direction > 0;
-		}
-		else
-		{
-			velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * deltaF);
-		}
+        // Flip all hitbox positions based on facing direction
+        float xDir = IsFacingRight ? 1 : -1;
+        if (_slashHitBox != null)
+            _slashHitBox.Position = new Vector2(20 * xDir, 0);
+        if (_thrustHitBox != null)
+            _thrustHitBox.Position = new Vector2(25 * xDir, 0);
+        if (_heavySwingHitBox != null)
+            _heavySwingHitBox.Position = new Vector2(18 * xDir, 0);
 
-		if (_sprite != null)
-			_sprite.FlipH = !IsFacingRight;
+        if (!_isAttacking && _sprite != null)
+        {
+            if (IsOnFloor())
+                _sprite.Play(direction == 0 ? "idle" : "run");
+            else
+                _sprite.Play("jump");
+        }
 
-		if (_attackHitBox != null)
-			_attackHitBox.Position = new Vector2(IsFacingRight ? 20 : -20, 0);
+        Velocity = velocity;
+        _debugLabel.Text = $"HP: {_health.CurrentHP}/{_health.MaxHP}\nVel: {Velocity}";
+        MoveAndSlide();
+    }
 
-		if (!_isAttacking && _sprite != null)
-		{
-			if (IsOnFloor())
-				_sprite.Play(direction == 0 ? "idle" : "run");
-			else
-				_sprite.Play("jump");
-		}
+    private float GetInputDirection()
+    {
+        float direction = 0;
+        if (Input.IsActionPressed("move_left"))
+            direction -= 1;
+        if (Input.IsActionPressed("move_right"))
+            direction += 1;
+        return direction;
+    }
 
-		Velocity = velocity;
-		_debugLabel.Text = $"HP: {_health.CurrentHP}/{_health.MaxHP}\nVel: {Velocity}";
-		MoveAndSlide();
-	}
+    private void PerformAttack(int attackIndex, HitBoxComponent hitBox)
+    {
+        if (hitBox == null)
+        {
+            GD.PushWarning($"Player: HitBox for attack {attackIndex} not found");
+            return;
+        }
 
-	private float GetInputDirection()
-	{
-		float direction = 0;
-		if (Input.IsActionPressed("move_left"))
-			direction -= 1;
-		if (Input.IsActionPressed("move_right"))
-			direction += 1;
-		return direction;
-	}
+        _isAttacking = true;
+        _currentHitBox = hitBox;
+        CurrentAttack = hitBox.AttackData;
 
-	private void PerformAttack(AttackData attackData)
-	{
-		if (_attackHitBox == null)
-		{
-			GD.PushWarning("Player: No AttackHitBox found");
-			return;
-		}
+        (string anim, float duration) = _attackConfigs[attackIndex];
 
-		_isAttacking = true;
-		CurrentAttack = attackData;
+        _currentHitBox.SetActive(true);
+        _attackTimer.WaitTime = duration;
+        _attackTimer.Start();
 
-		_attackHitBox.SetAttack(attackData);
-		_attackHitBox.SetActive(true);
+        // Play player character animation
+        if (_sprite != null && _sprite.SpriteFrames.HasAnimation(anim))
+            _sprite.Play(anim);
 
-		_attackTimer.WaitTime = AttackDuration;
-		_attackTimer.Start();
+        // Show and play hitbox effect sprite
+        _currentEffectSprite = hitBox.GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
+        if (_currentEffectSprite != null)
+        {
+            _currentEffectSprite.Visible = true;
+            _currentEffectSprite.Play();
+        }
+    }
 
-		if (_sprite != null && _sprite.SpriteFrames.HasAnimation("attack"))
-			_sprite.Play("attack");
-	}
+    private void OnAttackFinished()
+    {
+        _isAttacking = false;
+        CurrentAttack = null;
+        _currentHitBox?.SetActive(false);
+        _currentHitBox = null;
 
-	private void OnAttackFinished()
-	{
-		_isAttacking = false;
-		CurrentAttack = null;
-		_attackHitBox?.SetActive(false);
-	}
+        // Hide the effect sprite
+        if (_currentEffectSprite != null)
+        {
+            _currentEffectSprite.Stop();
+            _currentEffectSprite.Visible = false;
+            _currentEffectSprite = null;
+        }
+    }
 
-	// Signal handlers from HealthComponent
-	private void OnDamageTaken(int damage, bool wasCritical)
-	{
-		PlayHitEffect();
-	}
+    // Signal handler from HurtBoxComponent
+    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
+    {
+        if (_health.IsInvincible || _health.IsDead) return;
 
-	private void OnDied()
-	{
-		CanMove = false;
-		GameManager.Instance?.OnPlayerDied();
-	}
+        DamageResult result = DamageCalculator.CalculateDamage(
+            attackData,
+            attackerStats,
+            Stats,
+            attackerPosition,
+            GlobalPosition);
 
-	private void OnInvincibilityStarted()
-	{
-		StartInvincibilityVisual();
-	}
+        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
 
-	private void OnInvincibilityEnded()
-	{
-		StopInvincibilityVisual();
-	}
+        // Apply knockback
+        if (result.KnockbackApplied != Vector2.Zero)
+            Velocity += result.KnockbackApplied;
+    }
 
-	private void OnHealthChanged(int currentHP, int maxHP)
-	{
-		// Could update UI here if needed
-	}
+    // Signal handlers from HealthComponent
+    private void OnDamageTaken(int damage, bool wasCritical)
+    {
+        PlayHitEffect();
+    }
 
-	public override void _ExitTree()
-	{
-		// Unsubscribe from HealthComponent events to prevent memory leaks
-		if (_health != null)
-		{
-			_health.DamageTaken -= OnDamageTaken;
-			_health.Died -= OnDied;
-			_health.InvincibilityStarted -= OnInvincibilityStarted;
-			_health.InvincibilityEnded -= OnInvincibilityEnded;
-			_health.HealthChanged -= OnHealthChanged;
-		}
+    private void OnDied()
+    {
+        CanMove = false;
+        GameManager.Instance?.OnPlayerDied();
+    }
 
-		// Unsubscribe from Timer (Godot signal)
-		if (_attackTimer != null)
-			_attackTimer.Timeout -= OnAttackFinished;
-	}
+    private void OnInvincibilityStarted()
+    {
+        StartInvincibilityVisual();
+    }
 
-	private void StartInvincibilityVisual()
-	{
-		if (_sprite != null)
-		{
-			Tween tween = CreateTween();
-			tween.SetLoops((int)(_health.InvincibilityDuration / 0.1f));
-			tween.TweenProperty(_sprite, "modulate:a", 0.5f, 0.05f);
-			tween.TweenProperty(_sprite, "modulate:a", 1.0f, 0.05f);
-		}
-	}
+    private void OnInvincibilityEnded()
+    {
+        StopInvincibilityVisual();
+    }
 
-	private void StopInvincibilityVisual()
-	{
-		if (_sprite != null)
-			_sprite.Modulate = Colors.White;
-	}
+    private void OnHealthChanged(int currentHP, int maxHP)
+    {
+        // Could update UI here if needed
+    }
 
-	private void PlayHitEffect()
-	{
-		if (_sprite != null)
-		{
-			Tween tween = CreateTween();
-			tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
-			tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
-		}
-	}
+    public override void _ExitTree()
+    {
+        // Unsubscribe from HealthComponent signals
+        if (_health != null)
+        {
+            _health.DamageTaken -= OnDamageTaken;
+            _health.Died -= OnDied;
+            _health.InvincibilityStarted -= OnInvincibilityStarted;
+            _health.InvincibilityEnded -= OnInvincibilityEnded;
+            _health.HealthChanged -= OnHealthChanged;
+        }
 
-	private void _OnCollectionAreaEntered(Node2D body)
-	{
-		if (body is ICollectible collectible)
-			collectible.Collect(this);
-	}
+        // Unsubscribe from HurtBox signal
+        if (_hurtBox != null)
+            _hurtBox.HitReceived -= OnHitReceived;
+
+        // Unsubscribe from Timer
+        if (_attackTimer != null)
+            _attackTimer.Timeout -= OnAttackFinished;
+    }
+
+    private void StartInvincibilityVisual()
+    {
+        if (_sprite != null)
+        {
+            Tween tween = CreateTween();
+            tween.SetLoops((int)(_health.InvincibilityDuration / 0.1f));
+            tween.TweenProperty(_sprite, "modulate:a", 0.5f, 0.05f);
+            tween.TweenProperty(_sprite, "modulate:a", 1.0f, 0.05f);
+        }
+    }
+
+    private void StopInvincibilityVisual()
+    {
+        if (_sprite != null)
+            _sprite.Modulate = Colors.White;
+    }
+
+    private void PlayHitEffect()
+    {
+        if (_sprite != null)
+        {
+            Tween tween = CreateTween();
+            tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
+            tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
+        }
+    }
+
+    private void _OnCollectionAreaEntered(Node2D body)
+    {
+        if (body is ICollectible collectible)
+            collectible.Collect(this);
+    }
 }

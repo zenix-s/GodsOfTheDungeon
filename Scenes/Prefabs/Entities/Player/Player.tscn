@@ -1,9 +1,13 @@
-[gd_scene load_steps=34 format=3 uid="uid://dm4m78fwwgdy7"]
+[gd_scene load_steps=46 format=3 uid="uid://dm4m78fwwgdy7"]
 
 [ext_resource type="Script" uid="uid://bla7onkslwglf" path="res://Scenes/Prefabs/Entities/Player/Player.cs" id="1_ft8w5"]
 [ext_resource type="Texture2D" uid="uid://wk2nyy1hindf" path="res://Assets/Player/player.png" id="2_xjvg6"]
 [ext_resource type="PackedScene" uid="uid://bxkh3tbtbjugh" path="res://Core/Components/HurtBoxComponent.tscn" id="3_hurtbox"]
 [ext_resource type="PackedScene" path="res://Core/Components/HitBoxComponent.tscn" id="4_hitbox"]
+[ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="5_mfddi"]
+[ext_resource type="Resource" uid="uid://backob65eo8qf" path="res://Scenes/Prefabs/Entities/Player/Attacks/Slash.tres" id="6_slash"]
+[ext_resource type="Resource" path="res://Scenes/Prefabs/Entities/Player/Attacks/Thrust.tres" id="7_thrust"]
+[ext_resource type="Resource" path="res://Scenes/Prefabs/Entities/Player/Attacks/HeavySwing.tres" id="8_heavy"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_jcmh3"]
 atlas = ExtResource("2_xjvg6")
@@ -99,6 +103,30 @@ region = Rect2(224, 96, 32, 32)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_lyyqk"]
 animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jcmh3")
+}],
+"loop": false,
+"name": &"attack_heavy",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jcmh3")
+}],
+"loop": false,
+"name": &"attack_slash",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jcmh3")
+}],
+"loop": false,
+"name": &"attack_thrust",
+"speed": 10.0
+}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_jcmh3")
@@ -201,6 +229,55 @@ height = 16.0
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_attack"]
 size = Vector2(16, 20)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_qqno4"]
+atlas = ExtResource("5_mfddi")
+region = Rect2(48, 54, 24, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pcsr8"]
+atlas = ExtResource("5_mfddi")
+region = Rect2(0, 54, 24, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dvkkp"]
+atlas = ExtResource("5_mfddi")
+region = Rect2(24, 54, 24, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q5spc"]
+atlas = ExtResource("5_mfddi")
+region = Rect2(48, 54, 24, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1kg5y"]
+atlas = ExtResource("5_mfddi")
+region = Rect2(72, 54, 24, 18)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_pcsr8"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qqno4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pcsr8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dvkkp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q5spc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1kg5y")
+}],
+"loop": false,
+"name": &"attack_slash",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_thrust"]
+size = Vector2(30, 10)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_heavy"]
+size = Vector2(24, 28)
+
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
 script = ExtResource("1_ft8w5")
@@ -246,12 +323,36 @@ collision_mask = 256
 position = Vector2(0, 2)
 shape = SubResource("CapsuleShape2D_hurtbox")
 
-[node name="AttackHitBox" parent="." instance=ExtResource("4_hitbox")]
+[node name="SlashHitBox" parent="." instance=ExtResource("4_hitbox")]
 position = Vector2(20, 0)
 collision_layer = 128
 collision_mask = 64
+AttackData = ExtResource("6_slash")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackHitBox"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SlashHitBox"]
 shape = SubResource("RectangleShape2D_attack")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="SlashHitBox"]
+position = Vector2(1, -1)
+sprite_frames = SubResource("SpriteFrames_pcsr8")
+animation = &"attack_slash"
+
+[node name="ThrustHitBox" parent="." instance=ExtResource("4_hitbox")]
+position = Vector2(25, 0)
+collision_layer = 128
+collision_mask = 64
+AttackData = ExtResource("7_thrust")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ThrustHitBox"]
+shape = SubResource("RectangleShape2D_thrust")
+
+[node name="HeavySwingHitBox" parent="." instance=ExtResource("4_hitbox")]
+position = Vector2(18, 0)
+collision_layer = 128
+collision_mask = 64
+AttackData = ExtResource("8_heavy")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HeavySwingHitBox"]
+shape = SubResource("RectangleShape2D_heavy")
 
 [connection signal="body_entered" from="CollectionArea" to="." method="_OnCollectionAreaEntered"]

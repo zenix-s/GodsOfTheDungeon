@@ -1,9 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://health_component"]
+[gd_scene load_steps=2 format=3 uid="uid://nw1328xxa58v"]
 
-[ext_resource type="Script" path="res://Core/Components/HealthComponent.cs" id="1_health"]
+[ext_resource type="Script" uid="uid://e3p0uyutamln" path="res://Core/Components/HealthComponent.cs" id="1_health"]
 
 [node name="HealthComponent" type="Node"]
 script = ExtResource("1_health")
-MaxHP = 100
-InvincibilityDuration = 0.0
-StartAtMaxHP = true
