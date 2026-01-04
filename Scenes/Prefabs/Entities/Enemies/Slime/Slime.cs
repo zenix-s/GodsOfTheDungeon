@@ -4,7 +4,7 @@ using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
 using GodsOfTheDungeon.Core.Systems;
 
-public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, IAttacker
+public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 {
     private Timer _attackCooldownTimer;
     private HitBoxComponent _attackHitBox;
@@ -22,20 +22,6 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
     [Export] public float PatrolSpeed = 30f;
     [Export] public AttackData AttackData { get; set; }
 
-    // IAttacker implementation
-    public AttackData CurrentAttack => AttackData;
-
-    // IDamageable implementation (kept for direct damage sources)
-    public bool IsInvincible => _health?.IsInvincible ?? false;
-
-    public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        // Delegate to the same logic as HurtBox signal handler
-        OnHitReceived(attackData, attackerStats, attackerPosition);
-
-        return new DamageResult { WasBlocked = _health.IsDead };
-    }
-
     // IEnemy implementation
     public void OnPlayerDetected(Player player)
     {
@@ -52,6 +38,24 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
 
     // IGameEntity implementation
     [Export] public EntityStats Stats { get; set; }
+
+    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
+    {
+        if (_health.IsDead) return;
+
+        DamageResult result = DamageCalculator.CalculateDamage(
+            attackData,
+            attackerStats,
+            Stats,
+            attackerPosition,
+            GlobalPosition);
+
+        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
+
+        // Apply knockback
+        if (result.KnockbackApplied != Vector2.Zero)
+            Velocity += result.KnockbackApplied;
+    }
 
     public override void _Ready()
     {
@@ -233,25 +237,6 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
             // Deactivate after a short time (attack duration)
             GetTree().CreateTimer(0.2f).Timeout += () => _attackHitBox?.SetActive(false);
         }
-    }
-
-    // Signal handler from HurtBoxComponent
-    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (_health.IsDead) return;
-
-        DamageResult result = DamageCalculator.CalculateDamage(
-            attackData,
-            attackerStats,
-            Stats,
-            attackerPosition,
-            GlobalPosition);
-
-        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
-
-        // Apply knockback
-        if (result.KnockbackApplied != Vector2.Zero)
-            Velocity += result.KnockbackApplied;
     }
 
     // Signal handlers from HealthComponent

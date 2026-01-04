@@ -16,7 +16,8 @@ public static class DamageCalculator
         Vector2 attackerPosition,
         Vector2 targetPosition)
     {
-        DamageResult result = new();
+        bool wasCritical = false;
+        // DamageResult result = new();
 
         // Base damage calculation
         float rawDamage = CalculateAttackBaseDamage(attack, attackerStats);
@@ -31,10 +32,10 @@ public static class DamageCalculator
         if (attack.CanCrit && attackerStats.CriticalChance > GD.Randf())
         {
             finalDamage = Mathf.RoundToInt(finalDamage * attackerStats.CriticalMultiplier);
-            result.WasCritical = true;
+            wasCritical = true;
         }
 
-        result.FinalDamage = finalDamage;
+        // result.FinalDamage = finalDamage;
 
         // Calculate knockback direction
         Vector2 knockbackDir = attack.UseAttackerFacing
@@ -45,7 +46,12 @@ public static class DamageCalculator
         if (knockbackDir == Vector2.Zero) knockbackDir = Vector2.Right;
 
         float actualKnockback = attack.KnockbackForce * (1f - targetStats.KnockbackResistance);
-        result.KnockbackApplied = knockbackDir * actualKnockback;
+        // result.KnockbackApplied = knockbackDir * actualKnockback;
+
+        DamageResult result = new(
+            finalDamage,
+            wasCritical,
+            knockbackDir * actualKnockback);
 
         return result;
     }

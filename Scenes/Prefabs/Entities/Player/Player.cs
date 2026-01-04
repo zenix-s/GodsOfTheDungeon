@@ -6,7 +6,7 @@ using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
 using GodsOfTheDungeon.Core.Systems;
 
-public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttacker, IMovable
+public partial class Player : CharacterBody2D, IGameEntity
 {
     // Attack configs: animation name and duration per attack
     private readonly Dictionary<int, (string anim, float duration)> _attackConfigs = new()
@@ -40,46 +40,28 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttack
 
     public bool IsFacingRight { get; private set; } = true;
 
-    // IAttacker implementation
-    public AttackData CurrentAttack { get; private set; }
 
-    // IDamageable implementation (kept for direct damage sources like traps)
-    public bool IsInvincible => _health?.IsInvincible ?? false;
-
-    public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        // Delegate to the same logic as HurtBox signal handler
-        OnHitReceived(attackData, attackerStats, attackerPosition);
-
-        return new DamageResult { WasBlocked = _health.IsInvincible || _health.IsDead };
-    }
+    // Signal handler from HurtBoxComponent
 
     // IGameEntity implementation
     [Export] public EntityStats Stats { get; set; }
 
-    // IMovable implementation
-    float IMovable.Speed => Speed;
-
-    bool IMovable.CanMove
+    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
     {
-        get => CanMove;
-        set => CanMove = value;
-    }
+        if (_health.IsInvincible || _health.IsDead) return;
 
-    public void Move(Vector2 direction, float delta)
-    {
-        Vector2 velocity = Velocity;
-        if (direction != Vector2.Zero)
-        {
-            velocity.X = Mathf.MoveToward(velocity.X, direction.X * Speed, Acceleration * delta);
-            IsFacingRight = direction.X > 0;
-        }
-        else
-        {
-            velocity.X = Mathf.MoveToward(velocity.X, 0, Friction * delta);
-        }
+        DamageResult result = DamageCalculator.CalculateDamage(
+            attackData,
+            attackerStats,
+            Stats,
+            attackerPosition,
+            GlobalPosition);
 
-        Velocity = velocity;
+        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
+
+        // Apply knockback
+        if (result.KnockbackApplied != Vector2.Zero)
+            Velocity += result.KnockbackApplied;
     }
 
     public override void _Ready()
@@ -247,7 +229,6 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttack
 
         _isAttacking = true;
         _currentHitBox = hitBox;
-        CurrentAttack = hitBox.AttackData;
 
         (string anim, float duration) = _attackConfigs[attackIndex];
 
@@ -271,7 +252,6 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttack
     private void OnAttackFinished()
     {
         _isAttacking = false;
-        CurrentAttack = null;
         _currentHitBox?.SetActive(false);
         _currentHitBox = null;
 
@@ -282,25 +262,6 @@ public partial class Player : CharacterBody2D, IGameEntity, IDamageable, IAttack
             _currentEffectSprite.Visible = false;
             _currentEffectSprite = null;
         }
-    }
-
-    // Signal handler from HurtBoxComponent
-    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (_health.IsInvincible || _health.IsDead) return;
-
-        DamageResult result = DamageCalculator.CalculateDamage(
-            attackData,
-            attackerStats,
-            Stats,
-            attackerPosition,
-            GlobalPosition);
-
-        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
-
-        // Apply knockback
-        if (result.KnockbackApplied != Vector2.Zero)
-            Velocity += result.KnockbackApplied;
     }
 
     // Signal handlers from HealthComponent

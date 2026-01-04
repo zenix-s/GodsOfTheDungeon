@@ -32,20 +32,20 @@ No testing framework is currently configured.
 - **DamageCalculator** (`Core/Systems/DamageCalculator.cs`) - Combat damage formula
 
 ### Component Pattern
-- **HitBox** (`Core/Components/HitBox.cs`) - Deals damage on collision, finds `IGameEntity` owner for stats
-- **HurtBox** (`Core/Components/HurtBox.cs`) - Receives damage, returns `IDamageable` to HitBox
+- **HitBox** (`Core/Components/HitBox.cs`) - Deals damage on collision, stores `AttackData` and owner stats
+- **HurtBox** (`Core/Components/HurtBox.cs`) - Detects HitBox collisions, emits `HitReceived` signal with DTOs
+- **HealthComponent** (`Core/Components/HealthComponent.cs`) - Manages HP, invincibility frames, death
 
 ### Interfaces
 - `IGameEntity` - Entity with stats (`EntityStats Stats`)
-- `IDamageable` - Can receive damage (`IsInvincible`, `TakeDamage()`)
 - `IEnemy` - AI detection (`OnPlayerDetected`, `OnPlayerLost`)
 - `IInteractable` - Player interaction
 - `ICollectible` - Collectible items
 
 ### Entity Classes
 Entities extend `CharacterBody2D` directly and implement interfaces as needed:
-- **Player** (`Scenes/Prefabs/Entities/Player/Player.cs`) - Implements `IGameEntity, IDamageable`. Has invincibility frames.
-- **Slime** (`Scenes/Prefabs/Entities/Enemies/Slime/Slime.cs`) - Implements `IGameEntity, IDamageable, IEnemy`. No invincibility.
+- **Player** (`Scenes/Prefabs/Entities/Player/Player.cs`) - Implements `IGameEntity`. Has invincibility frames via HealthComponent.
+- **Slime** (`Scenes/Prefabs/Entities/Enemies/Slime/Slime.cs`) - Implements `IGameEntity, IEnemy`. No invincibility.
 
 ### Signal Flow
 GameManager emits: `CoinsChanged`, `PlayerDied`
@@ -86,7 +86,7 @@ Core/
   Components/    - Reusable components (HitBox, HurtBox)
   Data/          - Data structures (EntityStats, AttackData, DamageResult)
   Enums/         - Game enumerations
-  Interfaces/    - Contracts (IGameEntity, IDamageable, IEnemy, etc.)
+  Interfaces/    - Contracts (IGameEntity, IEnemy, IInteractable, ICollectible)
   Systems/       - Game systems (DamageCalculator)
 Scenes/
   Levels/        - Level scenes
