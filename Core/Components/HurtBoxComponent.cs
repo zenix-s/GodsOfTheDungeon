@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
@@ -5,17 +6,11 @@ using GodsOfTheDungeon.Core.Interfaces;
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-/// Component that receives damage and notifies its parent IDamageable.
-/// This is the active receiver in the damage flow - it calls TakeDamage on its parent.
+///     Component that receives damage and notifies its parent IDamageable.
+///     This is the active receiver in the damage flow - it calls TakeDamage on its parent.
 /// </summary>
 public partial class HurtBoxComponent : Area2D
 {
-    [Signal]
-    public delegate void DamageReceivedEventHandler(int damage, bool wasCritical);
-
-    [Signal]
-    public delegate void HitReceivedEventHandler();
-
     private IDamageable _owner;
     private Node _ownerNode;
 
@@ -40,12 +35,13 @@ public partial class HurtBoxComponent : Area2D
                 return damageable;
             current = current.GetParent();
         }
+
         return null;
     }
 
     /// <summary>
-    /// Called by HitBoxComponent when a hit connects.
-    /// HurtBoxComponent actively calls TakeDamage on its parent IDamageable.
+    ///     Called by HitBoxComponent when a hit connects.
+    ///     HurtBoxComponent actively calls TakeDamage on its parent IDamageable.
     /// </summary>
     public DamageResult NotifyHit(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
     {
@@ -58,21 +54,21 @@ public partial class HurtBoxComponent : Area2D
         if (_owner.IsInvincible)
             return DamageResult.Blocked;
 
-        // Emit signal before processing (allows for shields, damage reduction hooks)
-        EmitSignal(SignalName.HitReceived);
+        // Invoke event before processing (allows for shields, damage reduction hooks)
+        HitReceived?.Invoke();
 
         // Delegate damage handling to parent IDamageable
         DamageResult result = _owner.TakeDamage(attackData, attackerStats, attackerPosition);
 
-        // Emit damage received signal after processing
+        // Invoke damage received event after processing
         if (!result.WasBlocked)
-            EmitSignal(SignalName.DamageReceived, result.FinalDamage, result.WasCritical);
+            DamageReceived?.Invoke(result.FinalDamage, result.WasCritical);
 
         return result;
     }
 
     /// <summary>
-    /// Returns the parent IDamageable for reference.
+    ///     Returns the parent IDamageable for reference.
     /// </summary>
     public IDamageable GetDamageable()
     {
@@ -80,10 +76,17 @@ public partial class HurtBoxComponent : Area2D
     }
 
     /// <summary>
-    /// Returns the owner node for self-hit prevention.
+    ///     Returns the owner node for self-hit prevention.
     /// </summary>
     public Node GetOwnerNode()
     {
         return _ownerNode;
     }
+
+    #region Events
+
+    public event Action<int, bool> DamageReceived; // (damage, wasCritical)
+    public event Action HitReceived;
+
+    #endregion
 }

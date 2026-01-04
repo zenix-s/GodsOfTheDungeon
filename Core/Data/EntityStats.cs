@@ -3,8 +3,8 @@ using Godot;
 namespace GodsOfTheDungeon.Core.Data;
 
 /// <summary>
-/// Combat and movement stats for entities.
-/// Health is now managed by HealthComponent.
+///     Combat and movement stats for entities.
+///     Health is now managed by HealthComponent.
 /// </summary>
 [GlobalClass]
 public partial class EntityStats : Resource

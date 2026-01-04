@@ -3,7 +3,7 @@ using GodsOfTheDungeon.Core.Data;
 namespace GodsOfTheDungeon.Core.Interfaces;
 
 /// <summary>
-/// Interface for entities that can perform attacks.
+///     Interface for entities that can perform attacks.
 /// </summary>
 public interface IAttacker
 {

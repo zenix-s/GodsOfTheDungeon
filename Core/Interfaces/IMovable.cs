@@ -3,7 +3,7 @@ using Godot;
 namespace GodsOfTheDungeon.Core.Interfaces;
 
 /// <summary>
-/// Interface for entities with movement capabilities.
+///     Interface for entities with movement capabilities.
 /// </summary>
 public interface IMovable
 {

@@ -9,10 +9,10 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
     private Timer _attackCooldownTimer;
     private bool _canAttack = true;
     private SlimeState _currentState = SlimeState.Idle;
-    private Player _targetPlayer;
+    private HealthComponent _health;
     private bool _isPlayerInRange;
     private AnimatedSprite2D _sprite;
-    private HealthComponent _health;
+    private Player _targetPlayer;
 
     [Export] public float AttackCooldown = 1.5f;
     [Export] public float AttackRange = 20f;
@@ -20,14 +20,53 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
     [Export] public float PatrolSpeed = 30f;
     [Export] public AttackData AttackData { get; set; }
 
-    // IGameEntity implementation
-    [Export] public EntityStats Stats { get; set; }
+    // IAttacker implementation
+    public AttackData CurrentAttack => AttackData;
 
     // IDamageable implementation - delegate to HealthComponent
     public bool IsInvincible => _health?.IsInvincible ?? false;
 
-    // IAttacker implementation
-    public AttackData CurrentAttack => AttackData;
+    public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
+    {
+        if (_health.IsDead)
+            return DamageResult.Blocked;
+
+        DamageResult result = DamageCalculator.CalculateDamage(
+            attackData,
+            attackerStats,
+            Stats,
+            attackerPosition,
+            GlobalPosition);
+
+        // Apply damage through HealthComponent
+        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
+
+        // Apply knockback
+        if (result.KnockbackApplied != Vector2.Zero)
+            Velocity += result.KnockbackApplied;
+
+        if (_health.IsDead)
+            result.KilledTarget = true;
+
+        return result;
+    }
+
+    // IEnemy implementation
+    public void OnPlayerDetected(Player player)
+    {
+        _targetPlayer = player;
+        _isPlayerInRange = true;
+        _currentState = SlimeState.Chase;
+    }
+
+    public void OnPlayerLost()
+    {
+        _isPlayerInRange = false;
+        _currentState = SlimeState.Idle;
+    }
+
+    // IGameEntity implementation
+    [Export] public EntityStats Stats { get; set; }
 
     public override void _Ready()
     {
@@ -76,13 +115,18 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
         _attackCooldownTimer = new Timer();
         _attackCooldownTimer.OneShot = true;
         _attackCooldownTimer.WaitTime = AttackCooldown;
-        _attackCooldownTimer.Timeout += () => _canAttack = true;
+        _attackCooldownTimer.Timeout += OnAttackCooldownComplete;
         AddChild(_attackCooldownTimer);
+    }
+
+    private void OnAttackCooldownComplete()
+    {
+        _canAttack = true;
     }
 
     private void SetupDetectionArea()
     {
-        var detectionArea = GetNodeOrNull<Area2D>("DetectionArea");
+        Area2D detectionArea = GetNodeOrNull<Area2D>("DetectionArea");
         if (detectionArea != null)
         {
             detectionArea.BodyEntered += OnDetectionBodyEntered;
@@ -186,31 +230,6 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
         }
     }
 
-    public DamageResult TakeDamage(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (_health.IsDead)
-            return DamageResult.Blocked;
-
-        DamageResult result = DamageCalculator.CalculateDamage(
-            attackData,
-            attackerStats,
-            Stats,
-            attackerPosition,
-            GlobalPosition);
-
-        // Apply damage through HealthComponent
-        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
-
-        // Apply knockback
-        if (result.KnockbackApplied != Vector2.Zero)
-            Velocity += result.KnockbackApplied;
-
-        if (_health.IsDead)
-            result.KilledTarget = true;
-
-        return result;
-    }
-
     // Signal handlers from HealthComponent
     private void OnDamageTaken(int damage, bool wasCritical)
     {
@@ -222,6 +241,28 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
         QueueFree();
     }
 
+    public override void _ExitTree()
+    {
+        // Unsubscribe from HealthComponent events
+        if (_health != null)
+        {
+            _health.DamageTaken -= OnDamageTaken;
+            _health.Died -= OnDied;
+        }
+
+        // Unsubscribe from Timer
+        if (_attackCooldownTimer != null)
+            _attackCooldownTimer.Timeout -= OnAttackCooldownComplete;
+
+        // Unsubscribe from detection area (Godot signals)
+        Area2D detectionArea = GetNodeOrNull<Area2D>("DetectionArea");
+        if (detectionArea != null)
+        {
+            detectionArea.BodyEntered -= OnDetectionBodyEntered;
+            detectionArea.BodyExited -= OnDetectionBodyExited;
+        }
+    }
+
     private void PlayHitEffect()
     {
         if (_sprite != null)
@@ -230,20 +271,6 @@ public partial class Slime : CharacterBody2D, IGameEntity, IDamageable, IEnemy, 
             tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
             tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
         }
-    }
-
-    // IEnemy implementation
-    public void OnPlayerDetected(Player player)
-    {
-        _targetPlayer = player;
-        _isPlayerInRange = true;
-        _currentState = SlimeState.Chase;
-    }
-
-    public void OnPlayerLost()
-    {
-        _isPlayerInRange = false;
-        _currentState = SlimeState.Idle;
     }
 
     private enum SlimeState

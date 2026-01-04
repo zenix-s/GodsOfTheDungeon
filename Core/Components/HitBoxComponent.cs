@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
@@ -5,19 +6,22 @@ using GodsOfTheDungeon.Core.Interfaces;
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-/// Component that detects collisions and initiates damage on HurtBoxComponent.
-/// Calls HurtBoxComponent.NotifyHit() which then delegates to the parent IDamageable.
+///     Component that detects collisions and initiates damage on HurtBoxComponent.
+///     Calls HurtBoxComponent.NotifyHit() which then delegates to the parent IDamageable.
 /// </summary>
 public partial class HitBoxComponent : Area2D
 {
-    [Signal]
-    public delegate void HitConnectedEventHandler(Node target, int damage, bool wasCritical);
-
     private IGameEntity _owner;
     private Node _ownerNode;
 
     [Export] public AttackData AttackData { get; set; }
     [Export] public bool IsActive { get; set; }
+
+    #region Events
+
+    public event Action<Node, int, bool> HitConnected; // (target, damage, wasCritical)
+
+    #endregion
 
     public override void _Ready()
     {
@@ -48,10 +52,7 @@ public partial class HitBoxComponent : Area2D
     {
         if (!IsActive) return;
 
-        if (area is HurtBoxComponent hurtBoxComponent)
-        {
-            ProcessHit(hurtBoxComponent);
-        }
+        if (area is HurtBoxComponent hurtBoxComponent) ProcessHit(hurtBoxComponent);
     }
 
     private void ProcessHit(HurtBoxComponent hurtBox)
@@ -74,7 +75,7 @@ public partial class HitBoxComponent : Area2D
         if (!result.WasBlocked)
         {
             Node targetNode = hurtBox.GetOwnerNode();
-            EmitSignal(SignalName.HitConnected, targetNode, result.FinalDamage, result.WasCritical);
+            HitConnected?.Invoke(targetNode, result.FinalDamage, result.WasCritical);
         }
     }
 
