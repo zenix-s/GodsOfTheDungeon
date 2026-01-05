@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://bla7onkslwglf" path="res://Scenes/Prefabs/Entities/Player/Player.cs" id="1_ft8w5"]
 [ext_resource type="Texture2D" uid="uid://wk2nyy1hindf" path="res://Assets/Player/player.png" id="2_xjvg6"]
 [ext_resource type="PackedScene" uid="uid://bxkh3tbtbjugh" path="res://Core/Components/HurtBoxComponent.tscn" id="3_hurtbox"]
-[ext_resource type="PackedScene" path="res://Core/Components/HitBoxComponent.tscn" id="4_hitbox"]
+[ext_resource type="PackedScene" path="res://Core/Components/AttackHitBoxComponent.tscn" id="4_hitbox"]
 [ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="5_mfddi"]
 [ext_resource type="Resource" uid="uid://backob65eo8qf" path="res://Scenes/Prefabs/Entities/Player/Attacks/Slash.tres" id="6_slash"]
 [ext_resource type="Resource" path="res://Scenes/Prefabs/Entities/Player/Attacks/Thrust.tres" id="7_thrust"]

@@ -5,7 +5,7 @@ namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
 ///     Component that detects incoming attacks and emits signals.
-///     Active detector - monitors for HitBoxComponent collisions.
+///     Active detector - monitors for AttackHitBoxComponent collisions.
 ///     Parent connects to HitReceived signal to handle damage.
 /// </summary>
 public partial class HurtBoxComponent : Area2D
@@ -16,14 +16,14 @@ public partial class HurtBoxComponent : Area2D
 
     public override void _Ready()
     {
-        Monitoring = true; // Detecta HitBox
+        Monitoring = true; // Detecta AttackHitBox
         Monitorable = false; // No necesita ser detectado
         AreaEntered += OnAreaEntered;
     }
 
     private void OnAreaEntered(Area2D area)
     {
-        if (area is HitBoxComponent hitBox && hitBox.IsActive)
+        if (area is AttackHitBoxComponent hitBox && hitBox.IsActive)
         {
             EntityStats stats = hitBox.OwnerStats ?? new EntityStats();
             EmitSignal(SignalName.HitReceived, hitBox.AttackData, stats, hitBox.GlobalPosition);

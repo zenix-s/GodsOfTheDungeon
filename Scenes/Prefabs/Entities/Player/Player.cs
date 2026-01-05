@@ -18,16 +18,16 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private Timer _attackTimer;
     private AnimatedSprite2D _currentEffectSprite;
-    private HitBoxComponent _currentHitBox;
+    private AttackHitBoxComponent _currentHitBox;
 
     private Label _debugLabel;
     private HealthComponent _health;
-    private HitBoxComponent _heavySwingHitBox;
+    private AttackHitBoxComponent _heavySwingHitBox;
     private HurtBoxComponent _hurtBox;
     private bool _isAttacking;
-    private HitBoxComponent _slashHitBox;
+    private AttackHitBoxComponent _slashHitBox;
     private AnimatedSprite2D _sprite;
-    private HitBoxComponent _thrustHitBox;
+    private AttackHitBoxComponent _thrustHitBox;
 
     // Movement exports
     [Export] public float Acceleration = 1500.0f;
@@ -113,9 +113,9 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void SetupHitBoxComponents()
     {
-        _slashHitBox = GetNodeOrNull<HitBoxComponent>("SlashHitBox");
-        _thrustHitBox = GetNodeOrNull<HitBoxComponent>("ThrustHitBox");
-        _heavySwingHitBox = GetNodeOrNull<HitBoxComponent>("HeavySwingHitBox");
+        _slashHitBox = GetNodeOrNull<AttackHitBoxComponent>("SlashHitBox");
+        _thrustHitBox = GetNodeOrNull<AttackHitBoxComponent>("ThrustHitBox");
+        _heavySwingHitBox = GetNodeOrNull<AttackHitBoxComponent>("HeavySwingHitBox");
 
         // Set owner stats for damage calculation
         _slashHitBox?.SetOwnerStats(Stats);
@@ -219,7 +219,7 @@ public partial class Player : CharacterBody2D, IGameEntity
         return direction;
     }
 
-    private void PerformAttack(int attackIndex, HitBoxComponent hitBox)
+    private void PerformAttack(int attackIndex, AttackHitBoxComponent hitBox)
     {
         if (hitBox == null)
         {

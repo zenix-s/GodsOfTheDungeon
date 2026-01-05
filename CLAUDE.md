@@ -32,8 +32,8 @@ No testing framework is currently configured.
 - **DamageCalculator** (`Core/Systems/DamageCalculator.cs`) - Combat damage formula
 
 ### Component Pattern
-- **HitBox** (`Core/Components/HitBox.cs`) - Deals damage on collision, stores `AttackData` and owner stats
-- **HurtBox** (`Core/Components/HurtBox.cs`) - Detects HitBox collisions, emits `HitReceived` signal with DTOs
+- **AttackHitBoxComponent** (`Core/Components/AttackHitBoxComponent.cs`) - Attack hitbox, stores `AttackData` and owner stats, detected by HurtBox
+- **HurtBoxComponent** (`Core/Components/HurtBoxComponent.cs`) - Detects AttackHitBox collisions, emits `HitReceived` signal with DTOs
 - **HealthComponent** (`Core/Components/HealthComponent.cs`) - Manages HP, invincibility frames, death
 
 ### Interfaces
@@ -83,7 +83,7 @@ SceneManager emits: `LevelChangeRequested`, `MenuChangeRequested`
 ```
 Autoloads/       - Global singletons
 Core/
-  Components/    - Reusable components (HitBox, HurtBox)
+  Components/    - Reusable components (AttackHitBoxComponent, HurtBoxComponent, HealthComponent)
   Data/          - Data structures (EntityStats, AttackData, DamageResult)
   Enums/         - Game enumerations
   Interfaces/    - Contracts (IGameEntity, IEnemy, IInteractable, ICollectible)

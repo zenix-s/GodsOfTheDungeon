@@ -7,7 +7,7 @@ using GodsOfTheDungeon.Core.Systems;
 public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 {
     private Timer _attackCooldownTimer;
-    private HitBoxComponent _attackHitBox;
+    private AttackHitBoxComponent _attackHitBox;
     private bool _canAttack = true;
     private SlimeState _currentState = SlimeState.Idle;
     private HealthComponent _health;
@@ -110,7 +110,7 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 
     private void SetupHitBoxComponent()
     {
-        _attackHitBox = GetNodeOrNull<HitBoxComponent>("AttackHitBox");
+        _attackHitBox = GetNodeOrNull<AttackHitBoxComponent>("AttackHitBox");
         if (_attackHitBox != null)
         {
             _attackHitBox.SetOwnerStats(Stats);

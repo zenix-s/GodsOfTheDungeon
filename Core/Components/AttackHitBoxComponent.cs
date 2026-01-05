@@ -8,7 +8,7 @@ namespace GodsOfTheDungeon.Core.Components;
 ///     Passive component - detected by HurtBoxComponent, not the detector.
 ///     Parent sets OwnerStats for damage calculation.
 /// </summary>
-public partial class HitBoxComponent : Area2D
+public partial class AttackHitBoxComponent : Area2D
 {
     [Signal]
     public delegate void HitConnectedEventHandler(Node target);
