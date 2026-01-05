@@ -77,19 +77,7 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
         };
 
         // Setup HealthComponent
-        _health = GetNodeOrNull<HealthComponent>("HealthComponent");
-        if (_health == null)
-        {
-            _health = new HealthComponent
-            {
-                MaxHP = 20,
-                InvincibilityDuration = 0f, // Slimes have no i-frames
-                StartAtMaxHP = true
-            };
-            AddChild(_health);
-        }
-
-        // Connect health signals
+        _health = GetNode<HealthComponent>("HealthComponent");
         _health.DamageTaken += OnDamageTaken;
         _health.Died += OnDied;
 
@@ -120,11 +108,9 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 
     private void SetupAttackCooldown()
     {
-        _attackCooldownTimer = new Timer();
-        _attackCooldownTimer.OneShot = true;
+        _attackCooldownTimer = GetNode<Timer>("AttackCooldownTimer");
         _attackCooldownTimer.WaitTime = AttackCooldown;
         _attackCooldownTimer.Timeout += OnAttackCooldownComplete;
-        AddChild(_attackCooldownTimer);
     }
 
     private void OnAttackCooldownComplete()

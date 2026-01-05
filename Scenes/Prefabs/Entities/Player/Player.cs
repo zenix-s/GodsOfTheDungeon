@@ -84,12 +84,7 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void SetupHealthComponent()
     {
-        _health = GetNodeOrNull<HealthComponent>("HealthComponent");
-        if (_health == null)
-        {
-            _health = new HealthComponent();
-            AddChild(_health);
-        }
+        _health = GetNode<HealthComponent>("HealthComponent");
 
         // Initialize health from GameManager
         PlayerData playerData = GameManager.Instance?.GetPlayerData();
@@ -125,10 +120,8 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void SetupAttackTimer()
     {
-        _attackTimer = new Timer();
-        _attackTimer.OneShot = true;
+        _attackTimer = GetNode<Timer>("AttackTimer");
         _attackTimer.Timeout += OnAttackFinished;
-        AddChild(_attackTimer);
     }
 
     public override void _Input(InputEvent @event)

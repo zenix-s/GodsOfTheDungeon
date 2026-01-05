@@ -43,10 +43,8 @@ public partial class HealthComponent : Node
 
     private void SetupInvincibilityTimer()
     {
-        _invincibilityTimer = new Timer();
-        _invincibilityTimer.OneShot = true;
+        _invincibilityTimer = GetNode<Timer>("InvincibilityTimer");
         _invincibilityTimer.Timeout += OnInvincibilityEnded;
-        AddChild(_invincibilityTimer);
     }
 
     /// <summary>

@@ -4,3 +4,6 @@
 
 [node name="HealthComponent" type="Node"]
 script = ExtResource("1_health")
+
+[node name="InvincibilityTimer" type="Timer" parent="."]
+one_shot = true
