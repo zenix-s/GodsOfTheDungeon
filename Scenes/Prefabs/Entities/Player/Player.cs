@@ -4,17 +4,15 @@ using GodsOfTheDungeon.Core.Components;
 using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
 using GodsOfTheDungeon.Core.StateMachine;
-using GodsOfTheDungeon.Core.Systems;
 
 public partial class Player : CharacterBody2D, IGameEntity
 {
     // System references
-    public ComponentManager Components { get; private set; }
+    public AliveEntityComponentManager AliveComponents { get; private set; }
     public StateMachine StateMachine { get; private set; }
 
     // Direct component references (for external access and states)
     public HealthComponent HealthComponent { get; private set; }
-    public HurtBoxComponent HurtBoxComponent { get; private set; }
     public AttackHitBoxComponent SlashHitBox { get; private set; }
 
     private Label _debugLabel;
@@ -24,7 +22,7 @@ public partial class Player : CharacterBody2D, IGameEntity
     // IGameEntity implementation
     [Export] public EntityStats Stats { get; set; }
 
-    public bool IsFacingRight => Components?.Movement?.FacingRight ?? true;
+    public bool IsFacingRight => AliveComponents?.Movement?.FacingRight ?? true;
 
     public override void _Ready()
     {
@@ -32,23 +30,19 @@ public partial class Player : CharacterBody2D, IGameEntity
         Stats = GameManager.Instance?.GetPlayerStats()?.Clone() ?? new EntityStats();
 
         // Get systems
-        Components = GetNode<ComponentManager>("ComponentManager");
+        AliveComponents = GetNode<AliveEntityComponentManager>("ComponentManager");
         StateMachine = GetNode<GodsOfTheDungeon.Core.StateMachine.StateMachine>("StateMachine");
 
-        // Get existing components
-        HealthComponent = GetNode<HealthComponent>("HealthComponent");
-        HurtBoxComponent = GetNode<HurtBoxComponent>("HurtBox");
+        // Get direct component references
+        HealthComponent = AliveComponents.Health;
         SlashHitBox = GetNode<AttackHitBoxComponent>("SlashHitBox");
-
-        // Register external components with manager
-        Components.RegisterExternalComponents(HealthComponent, HurtBoxComponent, SlashHitBox);
 
         // Configure attack hitbox
         SlashHitBox.SetOwnerStats(Stats);
         SlashHitBox.SetActive(false);
 
         // Setup animation component reference to sprite
-        var animationComponent = Components.Animation;
+        var animationComponent = AliveComponents.Animation;
         if (animationComponent != null && animationComponent.Sprite == null)
         {
             animationComponent.Sprite = GetNode<AnimatedSprite2D>("AnimatedSprite2D");
@@ -57,12 +51,11 @@ public partial class Player : CharacterBody2D, IGameEntity
         // Initialize health from GameManager
         SetupHealthComponent();
 
-        // Connect signals
-        HurtBoxComponent.HitReceived += OnHitReceived;
-        HealthComponent.DamageTaken += OnDamageTaken;
-        HealthComponent.Died += OnDied;
-        HealthComponent.InvincibilityStarted += OnInvincibilityStarted;
-        HealthComponent.InvincibilityEnded += OnInvincibilityEnded;
+        // Connect to AliveEntityComponentManager signals
+        AliveComponents.DamageTaken += OnDamageTaken;
+        AliveComponents.Died += OnDied;
+        AliveComponents.InvincibilityStarted += OnInvincibilityStarted;
+        AliveComponents.InvincibilityEnded += OnInvincibilityEnded;
 
         _debugLabel = GetNodeOrNull<Label>("DebugLabel");
 
@@ -92,7 +85,7 @@ public partial class Player : CharacterBody2D, IGameEntity
     public override void _PhysicsProcess(double delta)
     {
         // Debug label update
-        if (_debugLabel != null && Components?.Movement != null)
+        if (_debugLabel != null && AliveComponents?.Movement != null)
         {
             _debugLabel.Text = $"HP: {HealthComponent.CurrentHP}/{HealthComponent.MaxHP}\n" +
                                $"Vel: {Velocity}\n" +
@@ -100,21 +93,6 @@ public partial class Player : CharacterBody2D, IGameEntity
         }
 
         MoveAndSlide();
-    }
-
-    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (HealthComponent.IsInvincible || HealthComponent.IsDead) return;
-
-        DamageResult result = DamageCalculator.CalculateDamage(
-            attackData,
-            attackerStats,
-            Stats,
-            attackerPosition,
-            GlobalPosition);
-
-        HealthComponent.ApplyDamage(result.FinalDamage, result.WasCritical);
-        Components.Movement.ApplyKnockback(result.KnockbackApplied);
     }
 
     private void OnDamageTaken(int damage, bool wasCritical)
@@ -140,17 +118,12 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     public override void _ExitTree()
     {
-        if (HealthComponent != null)
+        if (AliveComponents != null)
         {
-            HealthComponent.DamageTaken -= OnDamageTaken;
-            HealthComponent.Died -= OnDied;
-            HealthComponent.InvincibilityStarted -= OnInvincibilityStarted;
-            HealthComponent.InvincibilityEnded -= OnInvincibilityEnded;
-        }
-
-        if (HurtBoxComponent != null)
-        {
-            HurtBoxComponent.HitReceived -= OnHitReceived;
+            AliveComponents.DamageTaken -= OnDamageTaken;
+            AliveComponents.Died -= OnDied;
+            AliveComponents.InvincibilityStarted -= OnInvincibilityStarted;
+            AliveComponents.InvincibilityEnded -= OnInvincibilityEnded;
         }
 
         var collectionArea = GetNodeOrNull<Area2D>("CollectionArea");
@@ -162,7 +135,7 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void StartInvincibilityVisual()
     {
-        var sprite = Components?.Animation?.Sprite;
+        var sprite = AliveComponents?.Animation?.Sprite;
         if (sprite != null)
         {
             Tween tween = CreateTween();
@@ -174,12 +147,12 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void StopInvincibilityVisual()
     {
-        Components?.Animation?.SetModulate(Colors.White);
+        AliveComponents?.Animation?.SetModulate(Colors.White);
     }
 
     private void PlayHitEffect()
     {
-        var sprite = Components?.Animation?.Sprite;
+        var sprite = AliveComponents?.Animation?.Sprite;
         if (sprite != null)
         {
             Tween tween = CreateTween();

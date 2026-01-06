@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://nw1328xxa58v" path="res://Core/Components/HealthComponent.tscn" id="5_health"]
 [ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="5_mfddi"]
 [ext_resource type="Resource" uid="uid://backob65eo8qf" path="res://Scenes/Prefabs/Entities/Player/Attacks/Slash.tres" id="6_slash"]
-[ext_resource type="Script" uid="uid://ncgyusxf0507" path="res://Core/Components/ComponentManager.cs" id="7_componentmanager"]
+[ext_resource type="Script" uid="uid://08d4lg3l88fi" path="res://Core/Components/AliveEntityComponentManager.cs" id="7_componentmanager"]
 [ext_resource type="Script" uid="uid://bq5fph4tsmaxa" path="res://Core/Components/MovementComponent.cs" id="8_movement"]
 [ext_resource type="Script" uid="uid://bbpsvgyreticg" path="res://Core/Components/AnimationComponent.cs" id="9_animation"]
 [ext_resource type="Script" uid="uid://2l8k7hrpu3hm" path="res://Core/StateMachine/StateMachine.cs" id="10_statemachine"]
@@ -294,8 +294,12 @@ frame_progress = 0.05858678
 position = Vector2(0, 3)
 shape = SubResource("CapsuleShape2D_xjvg6")
 
-[node name="ComponentManager" type="Node" parent="."]
+[node name="ComponentManager" type="Node" parent="." node_paths=PackedStringArray("HurtBox", "Health", "Movement", "Animation")]
 script = ExtResource("7_componentmanager")
+HurtBox = NodePath("../HurtBox")
+Health = NodePath("../HealthComponent")
+Movement = NodePath("MovementComponent")
+Animation = NodePath("AnimationComponent")
 
 [node name="MovementComponent" type="Node" parent="ComponentManager"]
 script = ExtResource("8_movement")

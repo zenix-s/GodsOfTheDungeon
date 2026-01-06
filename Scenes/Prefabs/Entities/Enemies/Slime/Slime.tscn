@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://bxkh3tbtbjugh" path="res://Core/Components/HurtBoxComponent.tscn" id="3_hurtbox"]
 [ext_resource type="PackedScene" path="res://Core/Components/AttackHitBoxComponent.tscn" id="4_hitbox"]
 [ext_resource type="PackedScene" uid="uid://nw1328xxa58v" path="res://Core/Components/HealthComponent.tscn" id="5_health"]
-[ext_resource type="Script" uid="uid://ncgyusxf0507" path="res://Core/Components/ComponentManager.cs" id="6_componentmanager"]
+[ext_resource type="Script" path="res://Core/Components/AliveEntityComponentManager.cs" id="6_componentmanager"]
 [ext_resource type="Script" uid="uid://bq5fph4tsmaxa" path="res://Core/Components/MovementComponent.cs" id="7_movement"]
 [ext_resource type="Script" uid="uid://bbpsvgyreticg" path="res://Core/Components/AnimationComponent.cs" id="8_animation"]
 [ext_resource type="Script" uid="uid://2l8k7hrpu3hm" path="res://Core/StateMachine/StateMachine.cs" id="9_statemachine"]
@@ -76,8 +76,12 @@ autoplay = "idle"
 position = Vector2(0, -5)
 shape = SubResource("CapsuleShape2D_8e43r")
 
-[node name="ComponentManager" type="Node" parent="."]
+[node name="ComponentManager" type="Node" parent="." node_paths=PackedStringArray("HurtBox", "Health", "Movement", "Animation")]
 script = ExtResource("6_componentmanager")
+HurtBox = NodePath("../HurtBox")
+Health = NodePath("../HealthComponent")
+Movement = NodePath("MovementComponent")
+Animation = NodePath("AnimationComponent")
 
 [node name="MovementComponent" type="Node" parent="ComponentManager"]
 script = ExtResource("7_movement")

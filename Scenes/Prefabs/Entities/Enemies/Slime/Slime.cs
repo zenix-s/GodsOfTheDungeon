@@ -2,17 +2,15 @@ using Godot;
 using GodsOfTheDungeon.Core.Components;
 using GodsOfTheDungeon.Core.Data;
 using GodsOfTheDungeon.Core.Interfaces;
-using GodsOfTheDungeon.Core.Systems;
 
 public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 {
     // System references
-    public ComponentManager Components { get; private set; }
+    public AliveEntityComponentManager AliveComponents { get; private set; }
     public GodsOfTheDungeon.Core.StateMachine.StateMachine StateMachine { get; private set; }
 
     // Direct component references
     public HealthComponent HealthComponent { get; private set; }
-    public HurtBoxComponent HurtBoxComponent { get; private set; }
     public AttackHitBoxComponent AttackHitBox { get; private set; }
 
     // State machine accessible properties
@@ -51,16 +49,12 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
         };
 
         // Get systems
-        Components = GetNode<ComponentManager>("ComponentManager");
+        AliveComponents = GetNode<AliveEntityComponentManager>("ComponentManager");
         StateMachine = GetNode<GodsOfTheDungeon.Core.StateMachine.StateMachine>("StateMachine");
 
-        // Get existing components
-        HealthComponent = GetNode<HealthComponent>("HealthComponent");
-        HurtBoxComponent = GetNodeOrNull<HurtBoxComponent>("HurtBox");
+        // Get direct component references
+        HealthComponent = AliveComponents.Health;
         AttackHitBox = GetNodeOrNull<AttackHitBoxComponent>("AttackHitBox");
-
-        // Register external components with manager
-        Components.RegisterExternalComponents(HealthComponent, HurtBoxComponent, AttackHitBox);
 
         // Configure attack hitbox
         if (AttackHitBox != null)
@@ -71,21 +65,15 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
         }
 
         // Setup animation component reference to sprite
-        var animationComponent = Components.Animation;
+        var animationComponent = AliveComponents.Animation;
         if (animationComponent != null && animationComponent.Sprite == null)
         {
             animationComponent.Sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
         }
 
-        // Setup health signals
-        HealthComponent.DamageTaken += OnDamageTaken;
-        HealthComponent.Died += OnDied;
-
-        // Setup hurtbox
-        if (HurtBoxComponent != null)
-        {
-            HurtBoxComponent.HitReceived += OnHitReceived;
-        }
+        // Connect to AliveEntityComponentManager signals
+        AliveComponents.DamageTaken += OnDamageTaken;
+        AliveComponents.Died += OnDied;
 
         // Setup detection area
         SetupDetectionArea();
@@ -162,25 +150,10 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
         }
     }
 
-    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (HealthComponent.IsDead) return;
-
-        DamageResult result = DamageCalculator.CalculateDamage(
-            attackData,
-            attackerStats,
-            Stats,
-            attackerPosition,
-            GlobalPosition);
-
-        HealthComponent.ApplyDamage(result.FinalDamage, result.WasCritical);
-        Components.Movement.ApplyKnockback(result.KnockbackApplied);
-        StateMachine.TransitionTo("Hurt");
-    }
-
     private void OnDamageTaken(int damage, bool wasCritical)
     {
         PlayHitEffect();
+        StateMachine.TransitionTo("Hurt");
     }
 
     private void OnDied()
@@ -190,15 +163,10 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 
     public override void _ExitTree()
     {
-        if (HealthComponent != null)
+        if (AliveComponents != null)
         {
-            HealthComponent.DamageTaken -= OnDamageTaken;
-            HealthComponent.Died -= OnDied;
-        }
-
-        if (HurtBoxComponent != null)
-        {
-            HurtBoxComponent.HitReceived -= OnHitReceived;
+            AliveComponents.DamageTaken -= OnDamageTaken;
+            AliveComponents.Died -= OnDied;
         }
 
         if (_attackCooldownTimer != null)
@@ -216,7 +184,7 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 
     private void PlayHitEffect()
     {
-        var sprite = Components?.Animation?.Sprite;
+        var sprite = AliveComponents?.Animation?.Sprite;
         if (sprite != null)
         {
             Tween tween = CreateTween();

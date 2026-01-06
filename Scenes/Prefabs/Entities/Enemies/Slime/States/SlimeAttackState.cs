@@ -19,8 +19,8 @@ public partial class SlimeAttackState : State
         base.Initialize(owner, stateMachine);
 
         _slime = owner as global::Slime;
-        _movement = _slime.Components.Movement;
-        _animation = _slime.Components.Animation;
+        _movement = _slime.AliveComponents.Movement;
+        _animation = _slime.AliveComponents.Animation;
 
         // Create timer as child of this state
         _attackTimer = new Timer();

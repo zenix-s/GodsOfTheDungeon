@@ -14,8 +14,8 @@ public partial class PlayerJumpState : State
         base.Initialize(owner, stateMachine);
 
         var player = owner as global::Player;
-        _movement = player.Components.Movement;
-        _animation = player.Components.Animation;
+        _movement = player.AliveComponents.Movement;
+        _animation = player.AliveComponents.Animation;
     }
 
     public override void Enter()

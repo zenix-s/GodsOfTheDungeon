@@ -14,8 +14,8 @@ public partial class SlimeIdleState : State
         base.Initialize(owner, stateMachine);
 
         var slime = owner as global::Slime;
-        _movement = slime.Components.Movement;
-        _animation = slime.Components.Animation;
+        _movement = slime.AliveComponents.Movement;
+        _animation = slime.AliveComponents.Animation;
     }
 
     public override void Enter()
