@@ -23,14 +23,13 @@ public partial class HurtBoxComponent : Area2D
 
     private void OnAreaEntered(Area2D area)
     {
-        if (area is AttackHitBoxComponent hitBox && hitBox.IsActive)
-        {
-            EntityStats stats = hitBox.OwnerStats ?? new EntityStats();
-            EmitSignal(SignalName.HitReceived, hitBox.AttackData, stats, hitBox.GlobalPosition);
+        if (area is not AttackHitBoxComponent { IsActive: true } hitBox) return;
 
-            // Notify the hitbox that hit connected (for attacker feedback)
-            hitBox.NotifyHitConnected(GetParent());
-        }
+        EntityStats stats = hitBox.OwnerStats ?? new EntityStats();
+        EmitSignal(SignalName.HitReceived, hitBox.AttackData, stats, hitBox.GlobalPosition);
+
+        // Notify the hitbox that hit connected (for attacker feedback)
+        hitBox.NotifyHitConnected(GetParent());
     }
 
     #region Configuration Helpers

@@ -1,0 +1,49 @@
+using Godot;
+using GodsOfTheDungeon.Core.Components;
+using GodsOfTheDungeon.Core.StateMachine;
+
+namespace GodsOfTheDungeon.Scenes.Prefabs.Entities.Enemies.Slime.States;
+
+public partial class SlimeHurtState : State
+{
+    [Export] public float StunDuration { get; set; } = 0.3f;
+
+    private MovementComponent _movement;
+    private AnimationComponent _animation;
+    private float _stunTimer;
+
+    public override void Initialize(CharacterBody2D owner, StateMachine stateMachine)
+    {
+        base.Initialize(owner, stateMachine);
+
+        var slime = owner as global::Slime;
+        _movement = slime.Components.Movement;
+        _animation = slime.Components.Animation;
+    }
+
+    public override void Enter()
+    {
+        _stunTimer = StunDuration;
+        _animation.Play("idle"); // Use hurt animation if available
+    }
+
+    public override void PhysicsUpdate(double delta)
+    {
+        float deltaF = (float)delta;
+
+        _movement.UpdateFromOwner(Owner);
+        _movement.ApplyGravity(deltaF);
+        _movement.ApplyFriction(deltaF);
+        _movement.ApplyToOwner(Owner);
+
+        _stunTimer -= deltaF;
+        if (_stunTimer <= 0)
+        {
+            var slime = Owner as global::Slime;
+            if (slime.IsPlayerInRange)
+                TransitionTo("Chase");
+            else
+                TransitionTo("Idle");
+        }
+    }
+}

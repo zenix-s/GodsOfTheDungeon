@@ -6,56 +6,30 @@ using GodsOfTheDungeon.Core.Systems;
 
 public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 {
-    private Timer _attackCooldownTimer;
-    private AttackHitBoxComponent _attackHitBox;
-    private bool _canAttack = true;
-    private SlimeState _currentState = SlimeState.Idle;
-    private HealthComponent _health;
-    private HurtBoxComponent _hurtBox;
-    private bool _isPlayerInRange;
-    private AnimatedSprite2D _sprite;
-    private Player _targetPlayer;
+    // System references
+    public ComponentManager Components { get; private set; }
+    public GodsOfTheDungeon.Core.StateMachine.StateMachine StateMachine { get; private set; }
 
-    [Export] public float AttackCooldown = 1.5f;
-    [Export] public float AttackRange = 20f;
-    [Export] public float ChaseSpeed = 60f;
-    [Export] public float PatrolSpeed = 30f;
+    // Direct component references
+    public HealthComponent HealthComponent { get; private set; }
+    public HurtBoxComponent HurtBoxComponent { get; private set; }
+    public AttackHitBoxComponent AttackHitBox { get; private set; }
+
+    // State machine accessible properties
+    public Player TargetPlayer { get; private set; }
+    public bool IsPlayerInRange { get; private set; }
+    public bool CanAttack { get; private set; } = true;
+
+    [Export] public float AttackCooldown { get; set; } = 1.5f;
+    [Export] public float AttackRange { get; set; } = 20f;
+    [Export] public float ChaseSpeed { get; set; } = 60f;
+    [Export] public float PatrolSpeed { get; set; } = 30f;
     [Export] public AttackData AttackData { get; set; }
-
-    // IEnemy implementation
-    public void OnPlayerDetected(Player player)
-    {
-        _targetPlayer = player;
-        _isPlayerInRange = true;
-        _currentState = SlimeState.Chase;
-    }
-
-    public void OnPlayerLost()
-    {
-        _isPlayerInRange = false;
-        _currentState = SlimeState.Idle;
-    }
 
     // IGameEntity implementation
     [Export] public EntityStats Stats { get; set; }
 
-    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
-    {
-        if (_health.IsDead) return;
-
-        DamageResult result = DamageCalculator.CalculateDamage(
-            attackData,
-            attackerStats,
-            Stats,
-            attackerPosition,
-            GlobalPosition);
-
-        _health.ApplyDamage(result.FinalDamage, result.WasCritical);
-
-        // Apply knockback
-        if (result.KnockbackApplied != Vector2.Zero)
-            Velocity += result.KnockbackApplied;
-    }
+    private Timer _attackCooldownTimer;
 
     public override void _Ready()
     {
@@ -76,46 +50,51 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
             CanCrit = false
         };
 
-        // Setup HealthComponent
-        _health = GetNode<HealthComponent>("HealthComponent");
-        _health.DamageTaken += OnDamageTaken;
-        _health.Died += OnDied;
+        // Get systems
+        Components = GetNode<ComponentManager>("ComponentManager");
+        StateMachine = GetNode<GodsOfTheDungeon.Core.StateMachine.StateMachine>("StateMachine");
 
-        _sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
+        // Get existing components
+        HealthComponent = GetNode<HealthComponent>("HealthComponent");
+        HurtBoxComponent = GetNodeOrNull<HurtBoxComponent>("HurtBox");
+        AttackHitBox = GetNodeOrNull<AttackHitBoxComponent>("AttackHitBox");
 
-        SetupHurtBoxComponent();
-        SetupHitBoxComponent();
-        SetupAttackCooldown();
-        SetupDetectionArea();
-    }
+        // Register external components with manager
+        Components.RegisterExternalComponents(HealthComponent, HurtBoxComponent, AttackHitBox);
 
-    private void SetupHurtBoxComponent()
-    {
-        _hurtBox = GetNodeOrNull<HurtBoxComponent>("HurtBox");
-        if (_hurtBox != null)
-            _hurtBox.HitReceived += OnHitReceived;
-    }
-
-    private void SetupHitBoxComponent()
-    {
-        _attackHitBox = GetNodeOrNull<AttackHitBoxComponent>("AttackHitBox");
-        if (_attackHitBox != null)
+        // Configure attack hitbox
+        if (AttackHitBox != null)
         {
-            _attackHitBox.SetOwnerStats(Stats);
-            _attackHitBox.AttackData = AttackData;
+            AttackHitBox.SetOwnerStats(Stats);
+            AttackHitBox.AttackData = AttackData;
+            AttackHitBox.SetActive(false);
         }
-    }
 
-    private void SetupAttackCooldown()
-    {
-        _attackCooldownTimer = GetNode<Timer>("AttackCooldownTimer");
-        _attackCooldownTimer.WaitTime = AttackCooldown;
-        _attackCooldownTimer.Timeout += OnAttackCooldownComplete;
-    }
+        // Setup animation component reference to sprite
+        var animationComponent = Components.Animation;
+        if (animationComponent != null && animationComponent.Sprite == null)
+        {
+            animationComponent.Sprite = GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
+        }
 
-    private void OnAttackCooldownComplete()
-    {
-        _canAttack = true;
+        // Setup health signals
+        HealthComponent.DamageTaken += OnDamageTaken;
+        HealthComponent.Died += OnDied;
+
+        // Setup hurtbox
+        if (HurtBoxComponent != null)
+        {
+            HurtBoxComponent.HitReceived += OnHitReceived;
+        }
+
+        // Setup detection area
+        SetupDetectionArea();
+
+        // Setup attack cooldown timer
+        SetupAttackCooldown();
+
+        // Initialize state machine LAST
+        StateMachine.Initialize(this);
     }
 
     private void SetupDetectionArea()
@@ -128,104 +107,77 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
         }
     }
 
+    private void SetupAttackCooldown()
+    {
+        _attackCooldownTimer = GetNodeOrNull<Timer>("AttackCooldownTimer");
+        if (_attackCooldownTimer == null)
+        {
+            _attackCooldownTimer = new Timer();
+            _attackCooldownTimer.OneShot = true;
+            AddChild(_attackCooldownTimer);
+        }
+        _attackCooldownTimer.WaitTime = AttackCooldown;
+        _attackCooldownTimer.Timeout += OnAttackCooldownComplete;
+    }
+
+    // IEnemy implementation
+    public void OnPlayerDetected(Player player)
+    {
+        TargetPlayer = player;
+        IsPlayerInRange = true;
+        StateMachine.TransitionTo("Chase");
+    }
+
+    public void OnPlayerLost()
+    {
+        IsPlayerInRange = false;
+        StateMachine.TransitionTo("Idle");
+    }
+
+    // Called by SlimeAttackState
+    public void StartAttackCooldown()
+    {
+        CanAttack = false;
+        _attackCooldownTimer.Start();
+    }
+
+    private void OnAttackCooldownComplete()
+    {
+        CanAttack = true;
+    }
+
     private void OnDetectionBodyEntered(Node2D body)
     {
         if (body is Player player)
+        {
             OnPlayerDetected(player);
+        }
     }
 
     private void OnDetectionBodyExited(Node2D body)
     {
         if (body is Player)
+        {
             OnPlayerLost();
-    }
-
-    public override void _PhysicsProcess(double delta)
-    {
-        if (_health.IsDead) return;
-
-        UpdateState();
-        ProcessState((float)delta);
-
-        MoveAndSlide();
-    }
-
-    private void UpdateState()
-    {
-        if (!_isPlayerInRange || _targetPlayer == null)
-        {
-            _currentState = SlimeState.Idle;
-            return;
-        }
-
-        float distanceToPlayer = GlobalPosition.DistanceTo(_targetPlayer.GlobalPosition);
-
-        if (distanceToPlayer <= AttackRange && _canAttack)
-            _currentState = SlimeState.Attack;
-        else
-            _currentState = SlimeState.Chase;
-    }
-
-    private void ProcessState(float delta)
-    {
-        switch (_currentState)
-        {
-            case SlimeState.Idle:
-                _sprite?.Play("idle");
-                if (!IsOnFloor())
-                    Velocity += GetGravity() * delta;
-                else
-                    Velocity = new Vector2(0, Velocity.Y);
-                break;
-
-            case SlimeState.Chase:
-                ChasePlayer(delta);
-                break;
-
-            case SlimeState.Attack:
-                PerformAttack();
-                break;
         }
     }
 
-    private void ChasePlayer(float delta)
+    private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
     {
-        if (_targetPlayer == null) return;
+        if (HealthComponent.IsDead) return;
 
-        FaceTarget(_targetPlayer.GlobalPosition);
+        DamageResult result = DamageCalculator.CalculateDamage(
+            attackData,
+            attackerStats,
+            Stats,
+            attackerPosition,
+            GlobalPosition);
 
-        Vector2 direction = (_targetPlayer.GlobalPosition - GlobalPosition).Normalized();
-        Velocity = new Vector2(direction.X * ChaseSpeed, Velocity.Y);
-
-        if (!IsOnFloor())
-            Velocity += GetGravity() * delta;
-
-        _sprite?.Play("idle");
+        HealthComponent.ApplyDamage(result.FinalDamage, result.WasCritical);
+        Components.Movement.ApplyKnockback(result.KnockbackApplied);
+        StateMachine.TransitionTo("Hurt");
     }
 
-    private void FaceTarget(Vector2 targetPosition)
-    {
-        if (_sprite != null)
-            _sprite.FlipH = targetPosition.X < GlobalPosition.X;
-    }
-
-    private void PerformAttack()
-    {
-        if (!_canAttack || _targetPlayer == null) return;
-
-        _canAttack = false;
-        _attackCooldownTimer.Start();
-
-        // Activate hitbox briefly - Player's HurtBox will detect collision
-        if (_attackHitBox != null)
-        {
-            _attackHitBox.SetActive(true);
-            // Deactivate after a short time (attack duration)
-            GetTree().CreateTimer(0.2f).Timeout += () => _attackHitBox?.SetActive(false);
-        }
-    }
-
-    // Signal handlers from HealthComponent
     private void OnDamageTaken(int damage, bool wasCritical)
     {
         PlayHitEffect();
@@ -238,22 +190,22 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 
     public override void _ExitTree()
     {
-        // Unsubscribe from HealthComponent signals
-        if (_health != null)
+        if (HealthComponent != null)
         {
-            _health.DamageTaken -= OnDamageTaken;
-            _health.Died -= OnDied;
+            HealthComponent.DamageTaken -= OnDamageTaken;
+            HealthComponent.Died -= OnDied;
         }
 
-        // Unsubscribe from HurtBox signal
-        if (_hurtBox != null)
-            _hurtBox.HitReceived -= OnHitReceived;
+        if (HurtBoxComponent != null)
+        {
+            HurtBoxComponent.HitReceived -= OnHitReceived;
+        }
 
-        // Unsubscribe from Timer
         if (_attackCooldownTimer != null)
+        {
             _attackCooldownTimer.Timeout -= OnAttackCooldownComplete;
+        }
 
-        // Unsubscribe from detection area
         Area2D detectionArea = GetNodeOrNull<Area2D>("DetectionArea");
         if (detectionArea != null)
         {
@@ -264,18 +216,12 @@ public partial class Slime : CharacterBody2D, IGameEntity, IEnemy
 
     private void PlayHitEffect()
     {
-        if (_sprite != null)
+        var sprite = Components?.Animation?.Sprite;
+        if (sprite != null)
         {
             Tween tween = CreateTween();
-            tween.TweenProperty(_sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
-            tween.TweenProperty(_sprite, "modulate", Colors.White, 0.1f);
+            tween.TweenProperty(sprite, "modulate", new Color(1, 0.3f, 0.3f), 0.05f);
+            tween.TweenProperty(sprite, "modulate", Colors.White, 0.1f);
         }
-    }
-
-    private enum SlimeState
-    {
-        Idle,
-        Chase,
-        Attack
     }
 }

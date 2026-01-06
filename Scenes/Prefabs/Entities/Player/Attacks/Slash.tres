@@ -6,3 +6,4 @@
 script = ExtResource("1")
 AttackName = "Slash"
 BaseDamage = 1
+KnockbackForce = 500.0

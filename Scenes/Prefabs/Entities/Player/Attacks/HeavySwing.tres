@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://Core/Data/AttackData.cs" id="1"]
-
-[resource]
-script = ExtResource("1")
-AttackName = "Heavy Swing"
-BaseDamage = 3
-KnockbackForce = 350.0

@@ -1,4 +1,4 @@
-[gd_scene load_steps=47 format=3 uid="uid://dm4m78fwwgdy7"]
+[gd_scene load_steps=52 format=3 uid="uid://dm4m78fwwgdy7"]
 
 [ext_resource type="Script" uid="uid://bla7onkslwglf" path="res://Scenes/Prefabs/Entities/Player/Player.cs" id="1_ft8w5"]
 [ext_resource type="Texture2D" uid="uid://wk2nyy1hindf" path="res://Assets/Player/player.png" id="2_xjvg6"]
@@ -7,8 +7,15 @@
 [ext_resource type="PackedScene" uid="uid://nw1328xxa58v" path="res://Core/Components/HealthComponent.tscn" id="5_health"]
 [ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="5_mfddi"]
 [ext_resource type="Resource" uid="uid://backob65eo8qf" path="res://Scenes/Prefabs/Entities/Player/Attacks/Slash.tres" id="6_slash"]
-[ext_resource type="Resource" path="res://Scenes/Prefabs/Entities/Player/Attacks/Thrust.tres" id="7_thrust"]
-[ext_resource type="Resource" path="res://Scenes/Prefabs/Entities/Player/Attacks/HeavySwing.tres" id="8_heavy"]
+[ext_resource type="Script" uid="uid://ncgyusxf0507" path="res://Core/Components/ComponentManager.cs" id="7_componentmanager"]
+[ext_resource type="Script" uid="uid://bq5fph4tsmaxa" path="res://Core/Components/MovementComponent.cs" id="8_movement"]
+[ext_resource type="Script" uid="uid://bbpsvgyreticg" path="res://Core/Components/AnimationComponent.cs" id="9_animation"]
+[ext_resource type="Script" uid="uid://2l8k7hrpu3hm" path="res://Core/StateMachine/StateMachine.cs" id="10_statemachine"]
+[ext_resource type="Script" uid="uid://b6oa3s2d31k2t" path="res://Scenes/Prefabs/Entities/Player/States/PlayerIdleState.cs" id="11_idle"]
+[ext_resource type="Script" uid="uid://dk60dkxch4r0v" path="res://Scenes/Prefabs/Entities/Player/States/PlayerRunState.cs" id="12_run"]
+[ext_resource type="Script" uid="uid://stkdxrscho3i" path="res://Scenes/Prefabs/Entities/Player/States/PlayerJumpState.cs" id="13_jump"]
+[ext_resource type="Script" uid="uid://bkf254hevan7n" path="res://Scenes/Prefabs/Entities/Player/States/PlayerFallState.cs" id="14_fall"]
+[ext_resource type="Script" uid="uid://bdu8svtuc3jh0" path="res://Scenes/Prefabs/Entities/Player/States/PlayerAttackState.cs" id="15_attack"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_jcmh3"]
 atlas = ExtResource("2_xjvg6")
@@ -213,12 +220,12 @@ animations = [{
 "speed": 10.0
 }]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_xjvg6"]
-radius = 26.019224
-
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_xjvg6"]
 radius = 4.0
 height = 14.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_xjvg6"]
+radius = 26.019224
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_jcmh3"]
 radius = 32.06244
@@ -273,12 +280,6 @@ animations = [{
 "speed": 5.0
 }]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_thrust"]
-size = Vector2(30, 10)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_heavy"]
-size = Vector2(24, 28)
-
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
 script = ExtResource("1_ft8w5")
@@ -289,6 +290,40 @@ animation = &"run"
 autoplay = "idle"
 frame_progress = 0.05858678
 
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 3)
+shape = SubResource("CapsuleShape2D_xjvg6")
+
+[node name="ComponentManager" type="Node" parent="."]
+script = ExtResource("7_componentmanager")
+
+[node name="MovementComponent" type="Node" parent="ComponentManager"]
+script = ExtResource("8_movement")
+Speed = 150.0
+
+[node name="AnimationComponent" type="Node" parent="ComponentManager" node_paths=PackedStringArray("Sprite")]
+script = ExtResource("9_animation")
+Sprite = NodePath("../../AnimatedSprite2D")
+
+[node name="StateMachine" type="Node" parent="." node_paths=PackedStringArray("InitialState")]
+script = ExtResource("10_statemachine")
+InitialState = NodePath("Idle")
+
+[node name="Idle" type="Node" parent="StateMachine"]
+script = ExtResource("11_idle")
+
+[node name="Run" type="Node" parent="StateMachine"]
+script = ExtResource("12_run")
+
+[node name="Jump" type="Node" parent="StateMachine"]
+script = ExtResource("13_jump")
+
+[node name="Fall" type="Node" parent="StateMachine"]
+script = ExtResource("14_fall")
+
+[node name="Attack" type="Node" parent="StateMachine"]
+script = ExtResource("15_attack")
+
 [node name="InteractionDetector" type="Area2D" parent="."]
 visible = false
 collision_layer = 0
@@ -296,10 +331,6 @@ collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionDetector"]
 shape = SubResource("CircleShape2D_xjvg6")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 3)
-shape = SubResource("CapsuleShape2D_xjvg6")
 
 [node name="DebugLabel" type="Label" parent="."]
 offset_left = 7.0
@@ -334,31 +365,11 @@ AttackData = ExtResource("6_slash")
 shape = SubResource("RectangleShape2D_attack")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="SlashHitBox"]
+visible = false
 position = Vector2(1, -1)
 sprite_frames = SubResource("SpriteFrames_pcsr8")
 animation = &"attack_slash"
 
-[node name="ThrustHitBox" parent="." instance=ExtResource("4_hitbox")]
-position = Vector2(25, 0)
-collision_layer = 128
-collision_mask = 64
-AttackData = ExtResource("7_thrust")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="ThrustHitBox"]
-shape = SubResource("RectangleShape2D_thrust")
-
-[node name="HeavySwingHitBox" parent="." instance=ExtResource("4_hitbox")]
-position = Vector2(18, 0)
-collision_layer = 128
-collision_mask = 64
-AttackData = ExtResource("8_heavy")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HeavySwingHitBox"]
-shape = SubResource("RectangleShape2D_heavy")
-
 [node name="HealthComponent" parent="." instance=ExtResource("5_health")]
-
-[node name="AttackTimer" type="Timer" parent="."]
-one_shot = true
 
 [connection signal="body_entered" from="CollectionArea" to="." method="_OnCollectionAreaEntered"]

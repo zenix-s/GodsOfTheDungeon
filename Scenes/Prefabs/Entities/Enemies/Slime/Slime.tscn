@@ -1,10 +1,18 @@
-[gd_scene load_steps=14 format=3 uid="uid://bja1gv2tt6gfo"]
+[gd_scene load_steps=22 format=3 uid="uid://bja1gv2tt6gfo"]
 
 [ext_resource type="Texture2D" uid="uid://05epe4l4cxox" path="res://Assets/Enemies/Slime/slime_green.png" id="1_8e43r"]
 [ext_resource type="Script" uid="uid://bjuxgssqnv05a" path="res://Scenes/Prefabs/Entities/Enemies/Slime/Slime.cs" id="2_slime"]
 [ext_resource type="PackedScene" uid="uid://bxkh3tbtbjugh" path="res://Core/Components/HurtBoxComponent.tscn" id="3_hurtbox"]
-[ext_resource type="PackedScene" uid="uid://hitbox_component" path="res://Core/Components/AttackHitBoxComponent.tscn" id="4_hitbox"]
+[ext_resource type="PackedScene" path="res://Core/Components/AttackHitBoxComponent.tscn" id="4_hitbox"]
 [ext_resource type="PackedScene" uid="uid://nw1328xxa58v" path="res://Core/Components/HealthComponent.tscn" id="5_health"]
+[ext_resource type="Script" uid="uid://ncgyusxf0507" path="res://Core/Components/ComponentManager.cs" id="6_componentmanager"]
+[ext_resource type="Script" uid="uid://bq5fph4tsmaxa" path="res://Core/Components/MovementComponent.cs" id="7_movement"]
+[ext_resource type="Script" uid="uid://bbpsvgyreticg" path="res://Core/Components/AnimationComponent.cs" id="8_animation"]
+[ext_resource type="Script" uid="uid://2l8k7hrpu3hm" path="res://Core/StateMachine/StateMachine.cs" id="9_statemachine"]
+[ext_resource type="Script" uid="uid://d2yu4j7v3253n" path="res://Scenes/Prefabs/Entities/Enemies/Slime/States/SlimeIdleState.cs" id="10_idle"]
+[ext_resource type="Script" uid="uid://cx0887q1ba50" path="res://Scenes/Prefabs/Entities/Enemies/Slime/States/SlimeChaseState.cs" id="11_chase"]
+[ext_resource type="Script" uid="uid://bjnlkrfd16n1v" path="res://Scenes/Prefabs/Entities/Enemies/Slime/States/SlimeAttackState.cs" id="12_attack"]
+[ext_resource type="Script" path="res://Scenes/Prefabs/Entities/Enemies/Slime/States/SlimeHurtState.cs" id="13_hurt"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_2ihda"]
 atlas = ExtResource("1_8e43r")
@@ -68,6 +76,35 @@ autoplay = "idle"
 position = Vector2(0, -5)
 shape = SubResource("CapsuleShape2D_8e43r")
 
+[node name="ComponentManager" type="Node" parent="."]
+script = ExtResource("6_componentmanager")
+
+[node name="MovementComponent" type="Node" parent="ComponentManager"]
+script = ExtResource("7_movement")
+Speed = 60.0
+Acceleration = 800.0
+Friction = 600.0
+
+[node name="AnimationComponent" type="Node" parent="ComponentManager" node_paths=PackedStringArray("Sprite")]
+script = ExtResource("8_animation")
+Sprite = NodePath("../../AnimatedSprite2D")
+
+[node name="StateMachine" type="Node" parent="." node_paths=PackedStringArray("InitialState")]
+script = ExtResource("9_statemachine")
+InitialState = NodePath("Idle")
+
+[node name="Idle" type="Node" parent="StateMachine"]
+script = ExtResource("10_idle")
+
+[node name="Chase" type="Node" parent="StateMachine"]
+script = ExtResource("11_chase")
+
+[node name="Attack" type="Node" parent="StateMachine"]
+script = ExtResource("12_attack")
+
+[node name="Hurt" type="Node" parent="StateMachine"]
+script = ExtResource("13_hurt")
+
 [node name="HurtBox" parent="." instance=ExtResource("3_hurtbox")]
 collision_layer = 64
 collision_mask = 128
@@ -94,7 +131,6 @@ shape = SubResource("CircleShape2D_detection")
 
 [node name="HealthComponent" parent="." instance=ExtResource("5_health")]
 MaxHP = 20
-InvincibilityDuration = 0.0
 
 [node name="AttackCooldownTimer" type="Timer" parent="."]
 one_shot = true
