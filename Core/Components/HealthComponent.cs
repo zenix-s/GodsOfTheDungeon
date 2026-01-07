@@ -35,16 +35,25 @@ public partial class HealthComponent : Node
 
     public override void _Ready()
     {
+        ValidateRequirements();
+
         if (StartAtMaxHP)
             CurrentHP = MaxHP;
 
-        SetupInvincibilityTimer();
-    }
-
-    private void SetupInvincibilityTimer()
-    {
         _invincibilityTimer = GetNode<Timer>("InvincibilityTimer");
         _invincibilityTimer.Timeout += OnInvincibilityEnded;
+    }
+
+    /// <summary>
+    ///     Validates that all required child nodes are present.
+    ///     Throws an exception if validation fails.
+    /// </summary>
+    public void ValidateRequirements()
+    {
+        if (!HasNode("InvincibilityTimer"))
+            throw new System.InvalidOperationException(
+                $"HealthComponent ({GetPath()}): InvincibilityTimer child node is required. " +
+                "Add a Timer node named 'InvincibilityTimer' as a child.");
     }
 
     /// <summary>

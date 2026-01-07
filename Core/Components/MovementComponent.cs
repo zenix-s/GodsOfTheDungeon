@@ -3,11 +3,15 @@ using Godot;
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-/// Handles all movement physics for an entity.
-/// Stateless - provides utilities without knowing about game states.
+///     Handles all movement physics for an entity.
+///     Stateless - provides utilities without knowing about game states.
 /// </summary>
 public partial class MovementComponent : Node
 {
+    private float _gravity;
+
+    private Vector2 _pendingKnockback;
+
     // Movement properties (matching current Player.cs values)
     [Export] public float Speed { get; set; } = 300f;
     [Export] public float Acceleration { get; set; } = 1500f;
@@ -22,30 +26,24 @@ public partial class MovementComponent : Node
     public bool IsOnFloor { get; private set; }
     public bool FacingRight { get; private set; } = true;
 
-    private float _gravity;
-    private Vector2 _pendingKnockback;
-
     public override void _Ready()
     {
         _gravity = ProjectSettings.GetSetting("physics/2d/default_gravity").AsSingle();
     }
 
     /// <summary>
-    /// Read input and update InputDirection and FacingRight.
-    /// Call this each frame before movement calculations.
+    ///     Read input and update InputDirection and FacingRight.
+    ///     Call this each frame before movement calculations.
     /// </summary>
     public void UpdateInput()
     {
         InputDirection = Input.GetAxis("move_left", "move_right");
-        if (InputDirection != 0)
-        {
-            FacingRight = InputDirection > 0;
-        }
+        if (InputDirection != 0) FacingRight = InputDirection > 0;
     }
 
     /// <summary>
-    /// Sync velocity and floor state from the CharacterBody2D.
-    /// Call at the start of physics update.
+    ///     Sync velocity and floor state from the CharacterBody2D.
+    ///     Call at the start of physics update.
     /// </summary>
     public void UpdateFromOwner(CharacterBody2D owner)
     {
@@ -62,8 +60,8 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Apply velocity to owner and call MoveAndSlide.
-    /// Call at the end of physics update.
+    ///     Apply velocity to owner and call MoveAndSlide.
+    ///     Call at the end of physics update.
     /// </summary>
     public void ApplyToOwner(CharacterBody2D owner)
     {
@@ -73,7 +71,7 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Apply gravity based on fall state.
+    ///     Apply gravity based on fall state.
     /// </summary>
     public void ApplyGravity(float delta)
     {
@@ -85,7 +83,7 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Apply horizontal movement based on InputDirection.
+    ///     Apply horizontal movement based on InputDirection.
     /// </summary>
     public void ApplyHorizontalMovement(float delta)
     {
@@ -100,35 +98,31 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Apply friction when no input and on floor.
+    ///     Apply friction when no input and on floor.
     /// </summary>
     public void ApplyFriction(float delta)
     {
         if (InputDirection == 0 && IsOnFloor)
-        {
             Velocity = new Vector2(
                 Mathf.MoveToward(Velocity.X, 0, Friction * delta),
                 Velocity.Y
             );
-        }
     }
 
     /// <summary>
-    /// Apply air friction when no input (less friction than ground).
+    ///     Apply air friction when no input (less friction than ground).
     /// </summary>
     public void ApplyAirFriction(float delta)
     {
         if (InputDirection == 0)
-        {
             Velocity = new Vector2(
                 Mathf.MoveToward(Velocity.X, 0, Friction * 0.1f * delta),
                 Velocity.Y
             );
-        }
     }
 
     /// <summary>
-    /// Execute a jump.
+    ///     Execute a jump.
     /// </summary>
     public void Jump()
     {
@@ -136,18 +130,15 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Cut jump velocity (for variable jump height).
+    ///     Cut jump velocity (for variable jump height).
     /// </summary>
     public void CutJump()
     {
-        if (Velocity.Y < 0)
-        {
-            Velocity = new Vector2(Velocity.X, Velocity.Y * JumpCutMultiplier);
-        }
+        if (Velocity.Y < 0) Velocity = new Vector2(Velocity.X, Velocity.Y * JumpCutMultiplier);
     }
 
     /// <summary>
-    /// Apply knockback force. Stored as pending and applied on next UpdateFromOwner.
+    ///     Apply knockback force. Stored as pending and applied on next UpdateFromOwner.
     /// </summary>
     public void ApplyKnockback(Vector2 knockback)
     {
@@ -155,7 +146,7 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Set horizontal velocity directly (for AI movement).
+    ///     Set horizontal velocity directly (for AI movement).
     /// </summary>
     public void SetHorizontalVelocity(float velocity)
     {
@@ -163,7 +154,7 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Stop horizontal movement.
+    ///     Stop horizontal movement.
     /// </summary>
     public void StopHorizontalMovement()
     {
@@ -171,17 +162,14 @@ public partial class MovementComponent : Node
     }
 
     /// <summary>
-    /// Move toward a target position (for AI).
-    /// Returns the direction (-1, 0, or 1).
+    ///     Move toward a target position (for AI).
+    ///     Returns the direction (-1, 0, or 1).
     /// </summary>
     public float MoveToward(Vector2 targetPosition, Vector2 currentPosition, float speed)
     {
         float direction = Mathf.Sign(targetPosition.X - currentPosition.X);
         Velocity = new Vector2(direction * speed, Velocity.Y);
-        if (direction != 0)
-        {
-            FacingRight = direction > 0;
-        }
+        if (direction != 0) FacingRight = direction > 0;
         return direction;
     }
 }

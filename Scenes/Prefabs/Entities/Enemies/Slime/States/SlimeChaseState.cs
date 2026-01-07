@@ -6,8 +6,8 @@ namespace GodsOfTheDungeon.Scenes.Prefabs.Entities.Enemies.Slime.States;
 
 public partial class SlimeChaseState : State
 {
-    private MovementComponent _movement;
     private AnimationComponent _animation;
+    private MovementComponent _movement;
     private global::Slime _slime;
 
     public override void Initialize(CharacterBody2D owner, StateMachine stateMachine)
@@ -50,9 +50,6 @@ public partial class SlimeChaseState : State
 
         // Check if in attack range
         float distanceToPlayer = Owner.GlobalPosition.DistanceTo(_slime.TargetPlayer.GlobalPosition);
-        if (distanceToPlayer <= _slime.AttackRange && _slime.CanAttack)
-        {
-            TransitionTo("Attack");
-        }
+        if (distanceToPlayer <= _slime.AttackRange && _slime.CanAttack) TransitionTo("Attack");
     }
 }

@@ -6,14 +6,14 @@ namespace GodsOfTheDungeon.Scenes.Prefabs.Entities.Player.States;
 
 public partial class PlayerRunState : State
 {
-    private MovementComponent _movement;
     private AnimationComponent _animation;
+    private MovementComponent _movement;
 
     public override void Initialize(CharacterBody2D owner, StateMachine stateMachine)
     {
         base.Initialize(owner, stateMachine);
 
-        var player = owner as global::Player;
+        global::Player player = owner as global::Player;
         _movement = player.AliveComponents.Movement;
         _animation = player.AliveComponents.Animation;
     }
@@ -44,21 +44,13 @@ public partial class PlayerRunState : State
             return;
         }
 
-        if (_movement.InputDirection == 0)
-        {
-            TransitionTo("Idle");
-        }
+        if (_movement.InputDirection == 0) TransitionTo("Idle");
     }
 
     public override void HandleInput(InputEvent @event)
     {
         if (@event.IsActionPressed("ui_accept") && _movement.IsOnFloor)
-        {
             TransitionTo("Jump");
-        }
-        else if (@event.IsActionPressed("attack_1"))
-        {
-            TransitionTo("Attack");
-        }
+        else if (@event.IsActionPressed("attack_1")) TransitionTo("Attack");
     }
 }

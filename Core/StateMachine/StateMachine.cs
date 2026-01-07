@@ -1,24 +1,23 @@
-using Godot;
 using System.Collections.Generic;
+using Godot;
 
 namespace GodsOfTheDungeon.Core.StateMachine;
 
 /// <summary>
-/// Manages state transitions for a CharacterBody2D entity.
-/// Add State nodes as children and set InitialState in the editor.
+///     Manages state transitions for a CharacterBody2D entity.
+///     Add State nodes as children and set InitialState in the editor.
 /// </summary>
 public partial class StateMachine : Node
 {
+    private readonly Dictionary<StringName, State> _states = new();
+    private bool _isInitialized;
+    private CharacterBody2D _owner;
     [Export] public State InitialState { get; set; }
 
     public State CurrentState { get; private set; }
 
-    private readonly Dictionary<StringName, State> _states = new();
-    private CharacterBody2D _owner;
-    private bool _isInitialized;
-
     /// <summary>
-    /// Call from parent entity's _Ready() to initialize all states.
+    ///     Call from parent entity's _Ready() to initialize all states.
     /// </summary>
     public void Initialize(CharacterBody2D owner)
     {
@@ -26,13 +25,11 @@ public partial class StateMachine : Node
 
         // Collect all child states
         foreach (Node child in GetChildren())
-        {
             if (child is State state)
             {
                 _states[child.Name] = state;
                 state.Initialize(owner, this);
             }
-        }
 
         // Enter initial state
         if (InitialState != null)
@@ -61,7 +58,7 @@ public partial class StateMachine : Node
     }
 
     /// <summary>
-    /// Transition to a new state by name.
+    ///     Transition to a new state by name.
     /// </summary>
     public void TransitionTo(StringName stateName)
     {
@@ -75,7 +72,7 @@ public partial class StateMachine : Node
     }
 
     /// <summary>
-    /// Transition to a new state by reference.
+    ///     Transition to a new state by reference.
     /// </summary>
     public void TransitionTo(State newState)
     {
@@ -87,7 +84,7 @@ public partial class StateMachine : Node
     }
 
     /// <summary>
-    /// Get a state by name.
+    ///     Get a state by name.
     /// </summary>
     public State GetState(StringName stateName)
     {

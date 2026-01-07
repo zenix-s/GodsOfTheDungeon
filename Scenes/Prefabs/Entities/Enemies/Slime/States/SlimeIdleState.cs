@@ -6,14 +6,14 @@ namespace GodsOfTheDungeon.Scenes.Prefabs.Entities.Enemies.Slime.States;
 
 public partial class SlimeIdleState : State
 {
-    private MovementComponent _movement;
     private AnimationComponent _animation;
+    private MovementComponent _movement;
 
     public override void Initialize(CharacterBody2D owner, StateMachine stateMachine)
     {
         base.Initialize(owner, stateMachine);
 
-        var slime = owner as global::Slime;
+        global::Slime slime = owner as global::Slime;
         _movement = slime.AliveComponents.Movement;
         _animation = slime.AliveComponents.Animation;
     }

@@ -7,12 +7,12 @@ namespace GodsOfTheDungeon.Scenes.Prefabs.Entities.Enemies.Slime.States;
 public partial class SlimeAttackState : State
 {
     private const float AttackDuration = 0.2f;
+    private AnimationComponent _animation;
+    private bool _attackFinished;
+    private Timer _attackTimer;
 
     private MovementComponent _movement;
-    private AnimationComponent _animation;
     private global::Slime _slime;
-    private Timer _attackTimer;
-    private bool _attackFinished;
 
     public override void Initialize(CharacterBody2D owner, StateMachine stateMachine)
     {
@@ -63,13 +63,9 @@ public partial class SlimeAttackState : State
         {
             // Return to chase or idle based on player presence
             if (_slime.IsPlayerInRange && _slime.TargetPlayer != null)
-            {
                 TransitionTo("Chase");
-            }
             else
-            {
                 TransitionTo("Idle");
-            }
         }
     }
 

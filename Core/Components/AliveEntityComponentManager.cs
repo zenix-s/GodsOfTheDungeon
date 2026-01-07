@@ -6,14 +6,12 @@ using GodsOfTheDungeon.Core.Systems;
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-/// Active component manager for alive entities.
-/// Handles damage flow, signal wiring, and combat logic centrally.
-/// Parent entity must implement IGameEntity.
+///     Active component manager for alive entities.
+///     Handles damage flow, signal wiring, and combat logic centrally.
+///     Parent entity must implement IGameEntity.
 /// </summary>
 public partial class AliveEntityComponentManager : Node
 {
-    #region Signals
-
     [Signal]
     public delegate void DamageTakenEventHandler(int damage, bool wasCritical);
 
@@ -24,28 +22,20 @@ public partial class AliveEntityComponentManager : Node
     public delegate void HealedEventHandler(int amount);
 
     [Signal]
-    public delegate void InvincibilityStartedEventHandler();
-
-    [Signal]
     public delegate void InvincibilityEndedEventHandler();
 
-    #endregion
+    [Signal]
+    public delegate void InvincibilityStartedEventHandler();
 
-    #region Component References (Export for editor assignment)
+
+    private IGameEntity _owner;
+    private Node2D _ownerNode;
+
 
     [Export] public HurtBoxComponent HurtBox { get; set; }
     [Export] public HealthComponent Health { get; set; }
     [Export] public MovementComponent Movement { get; set; }
     [Export] public AnimationComponent Animation { get; set; }
-
-    #endregion
-
-    #region Runtime State
-
-    private IGameEntity _owner;
-    private Node2D _ownerNode;
-
-    #endregion
 
     public override void _Ready()
     {
@@ -54,7 +44,7 @@ public partial class AliveEntityComponentManager : Node
 
         if (_owner == null)
         {
-            GD.PushError($"AliveEntityComponentManager: Parent must implement IGameEntity");
+            GD.PushError("AliveEntityComponentManager: Parent must implement IGameEntity");
             return;
         }
 
@@ -64,12 +54,17 @@ public partial class AliveEntityComponentManager : Node
 
     private void ValidateComponents()
     {
+        if (Health == null)
+            throw new System.InvalidOperationException(
+                $"AliveEntityComponentManager ({GetPath()}): Health component is required but not assigned.");
+
         if (HurtBox == null)
             GD.PushWarning("AliveEntityComponentManager: HurtBox not assigned");
-        if (Health == null)
-            GD.PushError("AliveEntityComponentManager: Health is required");
         if (Movement == null)
             GD.PushWarning("AliveEntityComponentManager: Movement not assigned (knockback disabled)");
+
+        // Validate individual component requirements
+        Animation?.ValidateRequirements();
     }
 
     private void WireSignals()
@@ -87,6 +82,25 @@ public partial class AliveEntityComponentManager : Node
         }
     }
 
+    #region Cleanup
+
+    public override void _ExitTree()
+    {
+        if (HurtBox != null)
+            HurtBox.HitReceived -= OnHitReceived;
+
+        if (Health != null)
+        {
+            Health.DamageTaken -= OnHealthDamageTaken;
+            Health.Died -= OnHealthDied;
+            Health.Healed -= OnHealthHealed;
+            Health.InvincibilityStarted -= OnHealthInvincibilityStarted;
+            Health.InvincibilityEnded -= OnHealthInvincibilityEnded;
+        }
+    }
+
+    #endregion
+
     #region Internal Damage Flow
 
     private void OnHitReceived(AttackData attackData, EntityStats attackerStats, Vector2 attackerPosition)
@@ -103,10 +117,7 @@ public partial class AliveEntityComponentManager : Node
 
         bool wasApplied = Health.ApplyDamage(result.FinalDamage, result.WasCritical);
 
-        if (wasApplied && Movement != null)
-        {
-            Movement.ApplyKnockback(result.KnockbackApplied);
-        }
+        if (wasApplied && Movement != null) Movement.ApplyKnockback(result.KnockbackApplied);
     }
 
     private void OnHealthDamageTaken(int damage, bool wasCritical)
@@ -132,25 +143,6 @@ public partial class AliveEntityComponentManager : Node
     private void OnHealthInvincibilityEnded()
     {
         EmitSignal(SignalName.InvincibilityEnded);
-    }
-
-    #endregion
-
-    #region Cleanup
-
-    public override void _ExitTree()
-    {
-        if (HurtBox != null)
-            HurtBox.HitReceived -= OnHitReceived;
-
-        if (Health != null)
-        {
-            Health.DamageTaken -= OnHealthDamageTaken;
-            Health.Died -= OnHealthDied;
-            Health.Healed -= OnHealthHealed;
-            Health.InvincibilityStarted -= OnHealthInvincibilityStarted;
-            Health.InvincibilityEnded -= OnHealthInvincibilityEnded;
-        }
     }
 
     #endregion

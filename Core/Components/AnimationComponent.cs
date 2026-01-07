@@ -3,32 +3,38 @@ using Godot;
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-/// Wrapper for AnimatedSprite2D with convenience methods.
+///     Wrapper for AnimatedSprite2D with convenience methods.
 /// </summary>
 public partial class AnimationComponent : Node
 {
+    [Signal]
+    public delegate void AnimationFinishedEventHandler(StringName animName);
+
     [Export] public AnimatedSprite2D Sprite { get; set; }
 
     public StringName CurrentAnimation { get; private set; }
     public bool IsPlaying => Sprite?.IsPlaying() ?? false;
 
-    [Signal]
-    public delegate void AnimationFinishedEventHandler(StringName animName);
-
     public override void _Ready()
     {
-        if (Sprite != null)
-        {
-            Sprite.AnimationFinished += OnAnimationFinished;
-        }
-        else
-        {
-            GD.PushWarning("AnimationComponent: No Sprite assigned");
-        }
+        ValidateRequirements();
+        Sprite.AnimationFinished += OnAnimationFinished;
     }
 
     /// <summary>
-    /// Play an animation (only if not already playing this animation).
+    ///     Validates that all required exported fields are properly assigned.
+    ///     Throws an exception if validation fails.
+    /// </summary>
+    public void ValidateRequirements()
+    {
+        if (Sprite == null)
+            throw new System.InvalidOperationException(
+                $"AnimationComponent ({GetPath()}): Sprite is required but not assigned. " +
+                "Assign an AnimatedSprite2D in the inspector.");
+    }
+
+    /// <summary>
+    ///     Play an animation (only if not already playing this animation).
     /// </summary>
     public void Play(StringName animationName)
     {
@@ -42,8 +48,8 @@ public partial class AnimationComponent : Node
     }
 
     /// <summary>
-    /// Play an animation once (always restarts, even if same animation).
-    /// AnimationFinished signal fires when done.
+    ///     Play an animation once (always restarts, even if same animation).
+    ///     AnimationFinished signal fires when done.
     /// </summary>
     public void PlayOnce(StringName animationName)
     {
@@ -55,18 +61,15 @@ public partial class AnimationComponent : Node
     }
 
     /// <summary>
-    /// Set horizontal flip (for facing direction).
+    ///     Set horizontal flip (for facing direction).
     /// </summary>
     public void SetFlipH(bool flip)
     {
-        if (Sprite != null)
-        {
-            Sprite.FlipH = flip;
-        }
+        if (Sprite != null) Sprite.FlipH = flip;
     }
 
     /// <summary>
-    /// Check if a specific animation is currently playing.
+    ///     Check if a specific animation is currently playing.
     /// </summary>
     public bool IsAnimationPlaying(StringName animationName)
     {
@@ -74,7 +77,7 @@ public partial class AnimationComponent : Node
     }
 
     /// <summary>
-    /// Check if the sprite has a given animation.
+    ///     Check if the sprite has a given animation.
     /// </summary>
     public bool HasAnimation(StringName animationName)
     {
@@ -82,7 +85,7 @@ public partial class AnimationComponent : Node
     }
 
     /// <summary>
-    /// Stop the current animation.
+    ///     Stop the current animation.
     /// </summary>
     public void Stop()
     {
@@ -90,14 +93,11 @@ public partial class AnimationComponent : Node
     }
 
     /// <summary>
-    /// Set the modulate color (for effects like hit flash).
+    ///     Set the modulate color (for effects like hit flash).
     /// </summary>
     public void SetModulate(Color color)
     {
-        if (Sprite != null)
-        {
-            Sprite.Modulate = color;
-        }
+        if (Sprite != null) Sprite.Modulate = color;
     }
 
     private void OnAnimationFinished()
@@ -107,9 +107,6 @@ public partial class AnimationComponent : Node
 
     public override void _ExitTree()
     {
-        if (Sprite != null)
-        {
-            Sprite.AnimationFinished -= OnAnimationFinished;
-        }
+        if (Sprite != null) Sprite.AnimationFinished -= OnAnimationFinished;
     }
 }

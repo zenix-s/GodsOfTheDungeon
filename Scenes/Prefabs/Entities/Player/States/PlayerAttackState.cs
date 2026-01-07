@@ -8,21 +8,21 @@ public partial class PlayerAttackState : State
 {
     private const string SlashAnimation = "attack_slash";
     private const float AttackDistance = 20f;
-
-    [Export] public float AttackDuration { get; set; } = 0.25f;
+    private AnimationComponent _animation;
+    private bool _attackFinished;
+    private Timer _attackTimer;
+    private AnimatedSprite2D _effectSprite;
 
     private MovementComponent _movement;
-    private AnimationComponent _animation;
     private AttackHitBoxComponent _slashHitBox;
-    private AnimatedSprite2D _effectSprite;
-    private Timer _attackTimer;
-    private bool _attackFinished;
+
+    [Export] public float AttackDuration { get; set; } = 0.25f;
 
     public override void Initialize(CharacterBody2D owner, StateMachine stateMachine)
     {
         base.Initialize(owner, stateMachine);
 
-        var player = owner as global::Player;
+        global::Player player = owner as global::Player;
         _movement = player.AliveComponents.Movement;
         _animation = player.AliveComponents.Animation;
         _slashHitBox = player.SlashHitBox;
@@ -53,10 +53,7 @@ public partial class PlayerAttackState : State
         _attackTimer.Start();
 
         // Play character animation
-        if (_animation.HasAnimation(SlashAnimation))
-        {
-            _animation.PlayOnce(SlashAnimation);
-        }
+        if (_animation.HasAnimation(SlashAnimation)) _animation.PlayOnce(SlashAnimation);
 
         // Show and play hitbox effect sprite
         _effectSprite = _slashHitBox.GetNodeOrNull<AnimatedSprite2D>("AnimatedSprite2D");
@@ -98,17 +95,11 @@ public partial class PlayerAttackState : State
         if (_attackFinished)
         {
             if (!_movement.IsOnFloor)
-            {
                 TransitionTo("Fall");
-            }
             else if (_movement.InputDirection != 0)
-            {
                 TransitionTo("Run");
-            }
             else
-            {
                 TransitionTo("Idle");
-            }
         }
     }
 

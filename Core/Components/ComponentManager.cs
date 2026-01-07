@@ -3,8 +3,8 @@ using Godot;
 namespace GodsOfTheDungeon.Core.Components;
 
 /// <summary>
-/// Central access point for all entity components.
-/// Manages both child components and external (sibling) components.
+///     Central access point for all entity components.
+///     Manages both child components and external (sibling) components.
 /// </summary>
 public partial class ComponentManager : Node
 {
@@ -30,8 +30,8 @@ public partial class ComponentManager : Node
     }
 
     /// <summary>
-    /// Register external components that are siblings in the scene tree.
-    /// Called by the parent entity in _Ready().
+    ///     Register external components that are siblings in the scene tree.
+    ///     Called by the parent entity in _Ready().
     /// </summary>
     public void RegisterExternalComponents(
         HealthComponent health,
@@ -44,7 +44,7 @@ public partial class ComponentManager : Node
     }
 
     /// <summary>
-    /// Generic getter for component access by type.
+    ///     Generic getter for component access by type.
     /// </summary>
     public T Get<T>() where T : Node
     {

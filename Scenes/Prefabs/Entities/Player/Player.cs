@@ -7,6 +7,8 @@ using GodsOfTheDungeon.Core.StateMachine;
 
 public partial class Player : CharacterBody2D, IGameEntity
 {
+    private Label _debugLabel;
+
     // System references
     public AliveEntityComponentManager AliveComponents { get; private set; }
     public StateMachine StateMachine { get; private set; }
@@ -15,14 +17,12 @@ public partial class Player : CharacterBody2D, IGameEntity
     public HealthComponent HealthComponent { get; private set; }
     public AttackHitBoxComponent SlashHitBox { get; private set; }
 
-    private Label _debugLabel;
-
     [Export] public bool CanMove { get; set; } = true;
+
+    public bool IsFacingRight => AliveComponents?.Movement?.FacingRight ?? true;
 
     // IGameEntity implementation
     [Export] public EntityStats Stats { get; set; }
-
-    public bool IsFacingRight => AliveComponents?.Movement?.FacingRight ?? true;
 
     public override void _Ready()
     {
@@ -31,7 +31,7 @@ public partial class Player : CharacterBody2D, IGameEntity
 
         // Get systems
         AliveComponents = GetNode<AliveEntityComponentManager>("ComponentManager");
-        StateMachine = GetNode<GodsOfTheDungeon.Core.StateMachine.StateMachine>("StateMachine");
+        StateMachine = GetNode<StateMachine>("StateMachine");
 
         // Get direct component references
         HealthComponent = AliveComponents.Health;
@@ -40,13 +40,6 @@ public partial class Player : CharacterBody2D, IGameEntity
         // Configure attack hitbox
         SlashHitBox.SetOwnerStats(Stats);
         SlashHitBox.SetActive(false);
-
-        // Setup animation component reference to sprite
-        var animationComponent = AliveComponents.Animation;
-        if (animationComponent != null && animationComponent.Sprite == null)
-        {
-            animationComponent.Sprite = GetNode<AnimatedSprite2D>("AnimatedSprite2D");
-        }
 
         // Initialize health from GameManager
         SetupHealthComponent();
@@ -60,11 +53,8 @@ public partial class Player : CharacterBody2D, IGameEntity
         _debugLabel = GetNodeOrNull<Label>("DebugLabel");
 
         // Setup collection area
-        var collectionArea = GetNodeOrNull<Area2D>("CollectionArea");
-        if (collectionArea != null)
-        {
-            collectionArea.BodyEntered += _OnCollectionAreaEntered;
-        }
+        Area2D collectionArea = GetNodeOrNull<Area2D>("CollectionArea");
+        if (collectionArea != null) collectionArea.BodyEntered += _OnCollectionAreaEntered;
 
         // Initialize state machine LAST (after all components are ready)
         StateMachine.Initialize(this);
@@ -74,23 +64,19 @@ public partial class Player : CharacterBody2D, IGameEntity
     {
         PlayerData playerData = GameManager.Instance?.GetPlayerData();
         if (playerData != null)
-        {
             HealthComponent.Initialize(
                 playerData.MaxHP,
                 playerData.CurrentHP,
                 playerData.InvincibilityDuration);
-        }
     }
 
     public override void _PhysicsProcess(double delta)
     {
         // Debug label update
         if (_debugLabel != null && AliveComponents?.Movement != null)
-        {
             _debugLabel.Text = $"HP: {HealthComponent.CurrentHP}/{HealthComponent.MaxHP}\n" +
                                $"Vel: {Velocity}\n" +
                                $"State: {StateMachine.CurrentState?.Name}";
-        }
 
         MoveAndSlide();
     }
@@ -126,16 +112,13 @@ public partial class Player : CharacterBody2D, IGameEntity
             AliveComponents.InvincibilityEnded -= OnInvincibilityEnded;
         }
 
-        var collectionArea = GetNodeOrNull<Area2D>("CollectionArea");
-        if (collectionArea != null)
-        {
-            collectionArea.BodyEntered -= _OnCollectionAreaEntered;
-        }
+        Area2D collectionArea = GetNodeOrNull<Area2D>("CollectionArea");
+        if (collectionArea != null) collectionArea.BodyEntered -= _OnCollectionAreaEntered;
     }
 
     private void StartInvincibilityVisual()
     {
-        var sprite = AliveComponents?.Animation?.Sprite;
+        AnimatedSprite2D sprite = AliveComponents?.Animation?.Sprite;
         if (sprite != null)
         {
             Tween tween = CreateTween();
@@ -152,7 +135,7 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void PlayHitEffect()
     {
-        var sprite = AliveComponents?.Animation?.Sprite;
+        AnimatedSprite2D sprite = AliveComponents?.Animation?.Sprite;
         if (sprite != null)
         {
             Tween tween = CreateTween();
@@ -163,9 +146,6 @@ public partial class Player : CharacterBody2D, IGameEntity
 
     private void _OnCollectionAreaEntered(Node2D body)
     {
-        if (body is ICollectible collectible)
-        {
-            collectible.Collect(this);
-        }
+        if (body is ICollectible collectible) collectible.Collect(this);
     }
 }
